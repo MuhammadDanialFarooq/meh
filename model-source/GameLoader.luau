@@ -23,10 +23,13 @@ local TerritoryVFX = require(Modules.TerritoryVFX)
 local VictoryController = require(Modules.VictoryController)
 local VictoryWorldFX = require(Modules.VictoryWorldFX)
 
+local AudioController = require(Modules.AudioController)
+
 local Loader = {}
 
 function Loader.Start()
     CoreGuiController.DisablePlayerList()
+    local audio = AudioController.new(Config)
     if RunService:IsStudio() and Config.RunVictoryRegressionTests == true then
         local ok, err = xpcall(function()
             require(Modules.RegressionTests).Run(Config)
@@ -62,6 +65,7 @@ function Loader.Start()
         frozenForRevive = false
         particles:Clear()
         mergeEffects:Clear()
+        audio:Reset()
         killFeedback:Reset()
         arcadeEffects:Clear()
         motionEffects:Clear()
@@ -78,6 +82,7 @@ function Loader.Start()
             onSpawn = function(entity)
                 renderer:ResetEntityVisual(entity.id)
                 if entity.isHuman then
+                    audio:Spawn()
                     camera:Reset(entity.pos)
                     arcadeEffects:Spawn(entity)
                     toyFX:Spawn(entity)
@@ -86,6 +91,7 @@ function Loader.Start()
                 end
             end,
             onCapture = function(entity, count, changedCells)
+                if entity.isHuman then audio:Capture(count, world.grid.playableTotal) end
                 renderer:ClearTrail(entity.id)
                 if count > 0 then
                     territoryVFX:Play(entity, count, changedCells, world.grid)
@@ -112,6 +118,7 @@ function Loader.Start()
                 end
             end,
             onVictory = function(winner, wonWorld)
+                audio:Victory()
                 -- Irreversible game state. Do not let later callbacks restart it.
                 running = false
                 frozenForRevive = false
@@ -146,6 +153,10 @@ function Loader.Start()
                 visual("VictoryWorldParticles", function() victoryFX:Play(winner) end)
             end,
             onEliminate = function(victim, killer, cause)
+                if killer and killer.isHuman and killer ~= victim and killer.alive then
+                    audio:Kill(killer.killStreak)
+                end
+                if victim.isHuman then audio:Death() end
                 arcadeEffects:Elimination(victim, killer)
                 toyFX:Elimination(victim, killer)
                 renderer:RemoveEntityVisual(victim.id)
@@ -298,7 +309,7 @@ function Loader.Start()
             end
         end
     end)
-    return {UI = ui, Input = input, Renderer = renderer, Revive = revive,
+    return {Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
         Particles = particles, Camera = camera, KillFeedback = killFeedback,
         LandMergeEffects = mergeEffects, ArcadeEffects = arcadeEffects, MotionEffects = motionEffects,
         ExpandCombo = expandCombo, TerritoryVFX = territoryVFX, Cosmetics = CosmeticController,

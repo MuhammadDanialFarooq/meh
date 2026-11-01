@@ -1,16 +1,63 @@
-# Paintland V27 beta
+# Paintland V28 beta — arcade audio
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v27.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v28.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v27.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v28.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V28 audio
+
+Kill cues rise through **five tones** using the existing life kill streak. Kills
+six and above repeat the exact fifth cue, with no further pitch increase. Death
+resets the streak in the simulation; revive and replay start again at tone one.
+Bot kills do not play player reward sounds.
+
+Capture sounds use the **net percentage points gained by one completed capture**,
+not your total ownership or a relative percent change. For example, moving from
+20% to 27% gains 7 points and uses tier 1; gaining 12 points uses tier 2.
+A positive gain below 5 uses tier 0; each extra 5 points raises pitch. Capture
+tiers continue above five. A single cue plays per capture, rather than one per
+cell. Inheritance during that capture is included in its net gain; separate
+trail-kill inheritance uses the kill cue so rewards don't double-play.
+Spawn, death and victory have distinct pitches too. Overlapping voices are
+bounded to five kill cues, three capture cues and one each for other events.
+
+The default is Roblox's bundled `electronicpingshort.wav` at different pitches,
+so no uploaded sound ID is needed to try it. This creates an ascending arcade
+sequence; it does **not** include Valorant's recordings. To use five separate
+custom kill recordings, set `Config.KillSoundIds` to five audio IDs that your
+experience has permission to play. Custom recordings play at their original
+pitch, and the fifth is reused thereafter. Sound asset availability and actual
+loudness must be checked in Studio and on devices.
+
+Audio settings in `model-source/Config.luau`:
+
+| Setting | Default / behavior |
+| --- | --- |
+| `SoundEnabled` | `true`; set false to disable cues |
+| `SoundMasterVolume` | `0.65` |
+| `KillSoundPitches` | Five ascending default playback speeds |
+| `KillSoundIds` | Optional table of five custom asset IDs |
+| `CaptureSoundMetric` | `"Percentage"`; change to `"Tiles"` for raw tile gain |
+| `CaptureSoundStep` | `5` percentage points, or tiles in Tiles mode |
+| `CaptureSoundSemitonesPerStep` | `0.6`; larger values give bigger pitch jumps |
+| `CaptureSoundId` | Replace with permitted audio for the capture cue |
+
+`AudioController:SetMuted(true/false)` supports a future settings menu. Sound
+instances are reused and stopped on new runs/death; the controller also exposes
+`Destroy()` for teardown. No background music is included.
+
+In Studio, listen to kills 1, 2, 3, 4, 5, 6 and confirm 5/6 match; die/revive
+and verify the next kill returns to tone one. Compare gains immediately below
+and at 5/10/15 points, check a multi-kill capture for volume balance, and inspect
+Output for sound loading/permission errors. Listen on a phone as well.
 
 ## Changes
 
@@ -23,14 +70,14 @@ upload is retained unchanged in `models/`; editable Luau sources are in
 
 ## Validation
 
-All 39 scripts compiled with the official Luau compiler. Headless tests execute the
+All 41 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
-They cover five capture/inheritance scenarios, the existing 74%-ownership/victory
+Audio tests cover kills 1–20, custom cue IDs, exact 5-point thresholds, tile mode,
+voice limits, mute, reset, death and teardown. Gameplay tests cover five capture/inheritance scenarios, the existing 74%-ownership/victory
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms only six
-scripts changed.
+sources, preserves the original hierarchy/properties, and confirms seven original scripts changed and two audio modules were added.
 
 ```sh
 python3 tools/build_model.py

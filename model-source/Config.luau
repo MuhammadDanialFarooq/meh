@@ -191,4 +191,18 @@ Config.StudioVictoryTest = false
 -- Studio-only deterministic test for the 74%-to-0% ownership regression.
 Config.RunVictoryRegressionTests = true
 
+-- V28 local arcade audio. Five kill tiers; tier five repeats for streaks >= 5.
+Config.SoundEnabled = true
+Config.SoundMasterVolume = 0.65
+Config.SoundBaseId = "rbxasset://sounds/electronicpingshort.wav"
+Config.KillSoundIds = {} -- Optional five permitted rbxassetid:// IDs; custom cues play at native pitch.
+Config.KillSoundPitches = {0.9, 1.01, 1.13, 1.35, 1.51}
+Config.KillSoundVolume = 0.75
+Config.CaptureSoundId = Config.SoundBaseId
+Config.CaptureSoundVolume = 0.35
+Config.CaptureSoundMetric = "Percentage" -- "Tiles" uses raw cell gain instead.
+Config.CaptureSoundStep = 5 -- 0..<5, 5..<10, 10..<15 percentage points gained per capture.
+Config.CaptureSoundBasePitch = 0.9
+Config.CaptureSoundSemitonesPerStep = 0.6
+
 return Config

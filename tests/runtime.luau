@@ -24,5 +24,10 @@ function Random.new()
 end
 local function warn(...) print("WARN",...) end
 local game={GetService=function() return {TouchEnabled=false} end}
-local Instance={new=function(kind) return {ClassName=kind} end}
+local Instance={new=function(kind)
+    return {ClassName=kind, Playing=false,
+        Play=function(self) self.Playing=true end,
+        Stop=function(self) self.Playing=false end,
+        Destroy=function(self) self.Destroyed=true end}
+end}
 local UDim2={fromOffset=function(x,y) return {X=x,Y=y} end}
