@@ -69,7 +69,7 @@ function Revive.new(screen, cfg, callbacks)
     local card = make(root, "Frame", "ReviveCard", {
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(370, STUDIO and 400 or 350),
+        Size = UDim2.fromOffset(370, STUDIO and 454 or 403),
         BackgroundColor3 = Color3.fromRGB(250, 253, 248),
         BorderSizePixel = 0, ZIndex = 101,
     })
@@ -83,7 +83,7 @@ function Revive.new(screen, cfg, callbacks)
         local size = root.AbsoluteSize
         if size.X > 0 and size.Y > 0 then
             self.scale.Scale = math.clamp(math.min(
-                (size.X - 24)/370, (size.Y - 24)/(STUDIO and 400 or 350)
+                (size.X - 24)/370, (size.Y - 24)/(STUDIO and 454 or 403)
             ), 0.48, 1)
         end
     end)
@@ -92,7 +92,7 @@ function Revive.new(screen, cfg, callbacks)
             local s = root.AbsoluteSize
             if s.X > 0 and s.Y > 0 then
                 self.scale.Scale = math.clamp(math.min(
-                    (s.X - 24)/370, (s.Y - 24)/(STUDIO and 400 or 350)
+                    (s.X - 24)/370, (s.Y - 24)/(STUDIO and 454 or 403)
                 ), 0.48, 1)
             end
         end
@@ -107,7 +107,10 @@ function Revive.new(screen, cfg, callbacks)
     self.creditButton = button(card, "CreditRevive", "USE REVIVE CREDIT", 244, Color3.fromRGB(214, 229, 234))
     self.studioButton = button(card, "StudioTestRevive", "TEST REVIVE (STUDIO ONLY)", 295, Color3.fromRGB(255, 223, 143))
     self.studioButton.Visible = STUDIO
-    self.status = label(card, "Status", "", STUDIO and 346 or 299,
+    self.endButton = button(card, "EndRun", "END RUN", STUDIO and 346 or 295, Color3.fromRGB(225,230,238))
+    self.endButton.Size = UDim2.new(1,-36,0,36)
+    self.endButton.Activated:Connect(function() self:EndRun() end)
+    self.status = label(card, "Status", "", STUDIO and 390 or 339,
         STUDIO and 42 or 42, 12, Color3.fromRGB(82, 100, 110))
 
     for _, b in ipairs({self.adButton, self.buyButton, self.creditButton, self.studioButton}) do
@@ -140,7 +143,10 @@ function Revive.new(screen, cfg, callbacks)
     -- Do not block game startup waiting for the server Script to initialize.
     task.spawn(function()
         local folder = ReplicatedStorage:WaitForChild("PaintlandRevive", 12)
-        if not folder or not root.Parent then return end
+        if not folder or not root.Parent then
+            self.networkResolved=true
+            return
+        end
         self.network = folder
         self.updated = folder:WaitForChild("Updated", 10)
         self.beginRun = folder:WaitForChild("BeginRun", 10)
@@ -167,6 +173,9 @@ function Revive:RefreshButtons()
     self.studioButton.Visible = STUDIO
 
     local waiting = self.state ~= "countdown"
+    self.endButton.Active=self.active and not waiting
+    self.endButton.AutoButtonColor=self.endButton.Active
+    self.endButton.BackgroundTransparency=self.endButton.Active and 0 or 0.48
     local adReady = not STUDIO and self.available and self.requestAd ~= nil
         and self.purchasedProductId > 0
         and self.adsUsed < self.cfg.ReviveMaxAdsPerRun
@@ -206,9 +215,11 @@ end
 
 function Revive:SyncRun(serial)
     if not self.beginRun or serial ~= self.runSerial then return end
+    self.networkResolved=false -- credit availability is unknown until the server replies
     task.spawn(function()
         local ok, result = pcall(function() return self.beginRun:InvokeServer() end)
         if ok and type(result) == "table" and serial == self.runSerial then
+            self.networkResolved=true
             self.adsUsed = tonumber(result.adsUsed) or 0
             self.credits = tonumber(result.credits) or 0
             self.purchasedProductId = tonumber(result.productId) or self.purchasedProductId
@@ -342,16 +353,30 @@ function Revive:OnServerMessage(message)
     self:RefreshButtons()
 end
 
+function Revive:HasReviveOption()
+    return STUDIO or self.checkingAd or self.adButton.Active
+        or self.buyButton.Active or self.creditButton.Active
+end
+
+-- Do not abandon a pending purchase/ad/credit confirmation through this button.
+function Revive:EndRun()
+    if not self.active or self.state~="countdown" then return end
+    self:Close()
+    self.callbacks.onTimeout()
+end
+
 function Revive:Update(dt)
     if not self.active then return end
     if self.state == "countdown" then
+        -- Only skip the prompt once capability discovery has actually finished.
+        if self.networkResolved and not self:HasReviveOption() then
+            self:EndRun()
+            return
+        end
         self.remaining = math.max(0, self.remaining - dt)
         self.countdown.Text = tostring(math.ceil(self.remaining))
         if self.remaining <= 0 then
-            self.active = false
-            self.state = "closed"
-            self.root.Visible = false
-            self.callbacks.onTimeout()
+            self:EndRun()
         end
     elseif self.state == "waiting" or self.state == "consuming" then
         self.countdown.Text = "···"

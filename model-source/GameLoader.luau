@@ -153,6 +153,7 @@ function Loader.Start()
                 visual("VictoryWorldParticles", function() victoryFX:Play(winner) end)
             end,
             onEliminate = function(victim, killer, cause)
+                if victim.isHuman then ui:RecordDefeat(world) end
                 if killer and killer.isHuman and killer ~= victim and killer.alive then
                     audio:Kill(killer.killStreak)
                 end
@@ -216,6 +217,12 @@ function Loader.Start()
 
     ui = UIController.new(renderer, Config, {
         onSoundToggle = function(muted) audio:SetMuted(muted) end,
+        onMainMenu = function()
+            running=false
+            frozenForRevive=false
+            if revive then revive:Close() end
+            audio:Reset()
+        end,
         onPlay = function(skin)
             local ok, err = xpcall(function()
                 newMatch(skin)
@@ -239,9 +246,12 @@ function Loader.Start()
         end,
         onTimeout = function()
             if world and (world.completed or world:CheckVictory()) then return end
-            -- NO REVIVE: discard the full old game and start a clean run.
-            -- Two rewarded videos become available again only on this new run.
-            newMatch(ui.skin)
+            -- End the run without silently launching another match.
+            running=false
+            frozenForRevive=false
+            revive:Close()
+            audio:Reset()
+            ui:ShowDefeat(world)
         end,
     })
 

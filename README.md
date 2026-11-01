@@ -1,16 +1,36 @@
-# Paintland V29 beta — refreshed UI and sound controls
+# Paintland V30 beta — defeat results and main menu flow
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v29.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v30.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v29.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v30.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V30 defeat results
+
+When the revive countdown expires, or the player chooses **END RUN**, the match
+stops and a **DEFEAT** card shows the territory percentage, tile count and
+eliminations recorded at death. The **BACK TO MAIN MENU** action returns to the
+color-selection menu. A new match starts only when Play is selected; the old
+automatic restart on timeout has been removed.
+
+When revive capability discovery has finished and no revive button is usable,
+the game goes directly to defeat on the next UI update. While ad availability is
+still being checked, the regular countdown remains. Ending the run is disabled
+during ad/purchase/credit verification so those operations are not abandoned.
+Late server messages cannot revive a closed prompt. In Studio, the existing test
+revive button remains available for testing.
+
+Test a countdown expiry, End Run, a fully unavailable revive, successful revive
+followed by another death, and returning to menu then starting a fresh run. Verify
+that results keep the death snapshot and no bots move while on defeat/menu.
+Actual Roblox ad/purchase integration is still outside this client-only model.
 
 ## V29 interface
 
@@ -108,14 +128,15 @@ Output for sound loading/permission errors. Listen on a phone as well.
 All 41 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
 UI tests run the actual constructors/callbacks with minimal UI doubles, checking
-menu state, color selection, mute state and non-overlapping HUD panel bounds at
+menu/defeat state, death stat snapshots, revive expiry/decline/unavailability,
+pending-operation guards, color selection, mute state and non-overlapping HUD panel bounds at
 eight viewport sizes. This does not verify actual rendering, text glyphs or device
 input. Audio tests cover kills 1–20, custom cue IDs, exact 5-point thresholds, tile mode,
 voice limits, mute, reset, death and teardown. Gameplay tests cover five capture/inheritance scenarios, the existing 74%-ownership/victory
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms ten original scripts changed and two audio modules were added.
+sources, preserves the original hierarchy/properties, and confirms eleven original scripts changed and two audio modules were added.
 
 ```sh
 python3 tools/build_model.py

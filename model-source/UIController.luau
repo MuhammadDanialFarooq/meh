@@ -77,6 +77,7 @@ function UI.new(renderer,cfg,callbacks)
     round(self.card,28);edge(self.card,EDGE)
     self.menuScale=make(self.card,"UIScale","AdaptiveScale",{Scale=1})
     local badge=text(self.card,"Eyebrow","PAINT. CAPTURE. REPEAT.",11,MINT)
+    self.badge=badge
     badge.Position=UDim2.fromOffset(24,28);badge.Size=UDim2.fromOffset(372,22)
     self.title=text(self.card,"Title","PAINTLAND",43,WHITE)
     self.title.Position=UDim2.fromOffset(20,57);self.title.Size=UDim2.fromOffset(380,60)
@@ -103,10 +104,20 @@ function UI.new(renderer,cfg,callbacks)
             end
         end)
     end
+    self.result=text(self.card,"DefeatResult","",26,MINT)
+    self.result.Position=UDim2.fromOffset(32,194)
+    self.result.Size=UDim2.fromOffset(356,92)
+    self.result.TextWrapped=true
+    self.result.Visible=false
     self.play=button(self.card,"Play","LET'S PAINT  →",MINT)
     self.play.Position=UDim2.fromOffset(36,311);self.play.Size=UDim2.fromOffset(348,58)
     self.play.TextSize=19
     self.play.Activated:Connect(function()
+        if self.mode=="defeat" then
+            if callbacks.onMainMenu then callbacks.onMainMenu() end
+            self:SetMode("menu")
+            return
+        end
         if (self.mode=="menu" or self.mode=="win") and callbacks.onPlay then callbacks.onPlay(self.skin) end
     end)
     self.help=text(self.card,"Help","Close a loop to claim land.\nCut a rival's trail to take them out.",12,MUTED)
@@ -150,22 +161,48 @@ function UI:Resize()
     self.soundButton.Size=UDim2.fromOffset(132,44)
 end
 function UI:NewRun()
-    self.best=0;self.progress:Reset()
+    self.best=0;self.defeatStats=nil;self.progress:Reset()
 end
 function UI:SetMode(mode)
     self.mode=mode
-    self.overlay.Visible=mode=="menu" or mode=="win"
-    self.hud.Visible=mode~="menu" and mode~="win"
+    self.overlay.Visible=mode=="menu" or mode=="win" or mode=="defeat"
+    self.hud.Visible=mode~="menu" and mode~="win" and mode~="defeat"
+    self.result.Visible=mode=="defeat"
+    self.skinTitle.Visible=mode~="defeat"
+    for _,view in ipairs(self.skins) do view.button.Visible=mode~="defeat" end
+    self.title.TextColor3=mode=="defeat" and Color3.fromRGB(255,142,146) or WHITE
+    self.badge.Text=mode=="defeat" and "ROUND COMPLETE" or "PAINT. CAPTURE. REPEAT."
+    self.help.Text="Close a loop to claim land.\nCut a rival's trail to take them out."
     self.soundButton.Visible=mode~="revive" -- don't cover the revive action area
     if mode=="menu" then
         self.title.Text="PAINTLAND"
         self.subtitle.Text="A little color. A lot of territory."
         self.play.Text="LET'S PAINT  →"
+    elseif mode=="defeat" then
+        self.title.Text="DEFEAT"
+        self.subtitle.Text="Every mark counts. Come back stronger."
+        self.play.Text="BACK TO MAIN MENU  →"
+        self.help.Text="Pick a new color. Make a fresh start."
     elseif mode=="win" then
         self.title.Text="ALL YOURS!"
         self.subtitle.Text="100% of the arena. Every last tile."
         self.play.Text="PAINT AGAIN  →"
     end
+end
+-- Snapshot at death, before any revive choice or delayed HUD update.
+function UI:RecordDefeat(world)
+    local player=world.entities[1]
+    local count=world.grid.counts[1] or 0
+    local total=world.grid.playableTotal
+    self.defeatStats={count=count,percent=count/math.max(1,total)*100,
+        kills=player and player.kills or 0}
+end
+function UI:ShowDefeat(world)
+    if not self.defeatStats then self:RecordDefeat(world) end
+    local stats=self.defeatStats
+    self.result.Text=string.format("%.1f%% CONQUERED\n%d tiles  ·  %d eliminations",
+        math.min(99.9,stats.percent),stats.count,stats.kills)
+    self:SetMode("defeat")
 end
 function UI:Toast(message,color)
     self.toastVersion+=1

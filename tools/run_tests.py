@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 cli = os.environ.get('LUAU_BIN', '/tmp/paintland-luau/luau')
 source_dir = Path(os.environ.get('PAINTLAND_SOURCE_DIR', ROOT / 'model-source'))
 modules = ['Config','Grid','Trails','Movement','BotAI','CollisionSystem',
-           'TerritorySystem','SpawnService','World','RegressionTests','ChunkGeometry','MinimapController','AudioCues','AudioController','AvatarThumbnails','LeaderboardService','LeaderboardController','HUDCanvas','UIController']
+           'TerritorySystem','SpawnService','World','RegressionTests','ChunkGeometry','MinimapController','AudioCues','AudioController','AvatarThumbnails','LeaderboardService','LeaderboardController','HUDCanvas','UIController','ReviveController']
 code = (ROOT / 'tests/runtime.luau').read_text()
 code += '\nlocal factories, cache = {}, {}\nlocal loadModule\n'
 for name in modules:

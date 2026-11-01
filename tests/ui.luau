@@ -23,7 +23,7 @@ end})
 local tweens={Create=function(_,obj,_,goals)
     return {Play=function() for k,v in pairs(goals) do obj[k]=v end end,Cancel=function() end}
 end}
-local services={TweenService=tweens,UserInputService={TouchEnabled=false},Players={LocalPlayer={UserId=0}}}
+local services={RunService={IsStudio=function() return false end},TweenService=tweens,UserInputService={TouchEnabled=false},Players={LocalPlayer={UserId=0}}}
 game.GetService=function(_,name) return services[name] or {} end
 local deferred={}
 local taskDouble={defer=function(f) f() end,delay=function(_,f) table.insert(deferred,f) end,spawn=function() end}
@@ -99,5 +99,39 @@ for _,size in ipairs({{320,568},{375,667},{390,844},{640,360},{844,390},{900,600
 end
 ui:SetMode("revive");assert(not ui.soundButton.Visible,"Sound button covers revive")
 ui:SetMode("playing");assert(ui.soundButton.Visible,"Sound button not restored")
+-- Results retain the death snapshot even if later HUD updates inspect the world.
+local world={entities={{kills=7}},grid={counts={[1]=224},playableTotal=1000}}
+ui:RecordDefeat(world)
+world.grid.counts[1]=10
+ui:ShowDefeat(world)
+assert(ui.mode=="defeat" and ui.overlay.Visible and not ui.hud.Visible,"Defeat overlay not exclusive")
+assert(ui.result.Text=="22.4% CONQUERED\n224 tiles  ·  7 eliminations","Death snapshot changed")
+assert(not ui.skins[1].button.Visible and ui.result.Visible,"Color selector covers results")
+playSkin=nil
+ui.play.Activated:Fire()
+assert(ui.mode=="menu" and playSkin==nil and ui.skins[1].button.Visible and not ui.result.Visible,
+    "Defeat button restarted gameplay instead of returning to menu")
+ui:NewRun();assert(ui.defeatStats==nil,"New run retained stale defeat stats")
+
+local Revive=loadModule("ReviveController")
+local ended=0
+local r=setmetatable({active=true,state="countdown",remaining=.1,requestSerial=0,
+    root={Visible=true},countdown={},cfg={ReviveTransactionTimeout=90},waitTime=0,
+    callbacks={onTimeout=function() ended+=1 end}},Revive)
+r:Update(.2)
+assert(ended==1 and not r.active and not r.root.Visible,"Revive timeout did not finish run")
+r:Update(10);r:EndRun();assert(ended==1,"Defeat triggered repeatedly")
+r.active=true;r.state="countdown";r.root.Visible=true;r:EndRun()
+assert(ended==2,"Declining revive did not finish run")
+r.active=true;r.state="waiting";r.root.Visible=true
+r:EndRun();r:Update(1)
+assert(ended==2 and r.active,"Pending transaction was abandoned")
+r.state="countdown";r.networkResolved=true;r.checkingAd=false
+r.adButton={Active=false};r.buyButton={Active=false};r.creditButton={Active=false}
+r:Update(0)
+assert(ended==3 and not r.active,"Known unavailable revives did not finish run immediately")
+r.active=true;r.state="countdown";r.checkingAd=true;r.remaining=5
+r:Update(.1)
+assert(ended==3 and r.active,"Availability discovery was mistaken for exhausted revives")
 ui:Destroy();assert(ui.soundButton.Destroyed and ui.overlay.Destroyed,"UI teardown failed")
-print("[Paintland V29 TEST PASS] Menu/play/color/mute states; HUD bounds and separation at 8 viewport sizes")
+print("[Paintland V29 TEST PASS] Menu/play/color/mute/defeat states; frozen death stats, revive timeout/decline/transaction guard; HUD bounds at 8 sizes")
