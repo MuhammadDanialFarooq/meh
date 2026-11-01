@@ -43,14 +43,14 @@ function Minimap.new(cfg, parent, renderer)
     self.elapsed = 0
     self.side = 136
     -- Clean flat minimap with an inset map surface, not a UI dashboard card.
-    self.panel = frame(parent, "RuntimeMinimap", Color3.fromRGB(255,255,255),24)
+    self.panel = frame(parent, "RuntimeMinimap", Color3.fromRGB(19,30,48),24)
     self.panel.AnchorPoint = Vector2.new(0,1)
     self.panel.Position = UDim2.new(0,13,1,-13)
     self.panel.ClipsDescendants = false
     round(self.panel, 18)
     local outline=Instance.new("UIStroke")
-    outline.Color=Color3.fromRGB(37,65,119)
-    outline.Thickness=2.5
+    outline.Color=Color3.fromRGB(67,91,117)
+    outline.Thickness=1
     outline.Parent=self.panel
 
     self.header = text(self.panel, "Title", "", 10)
@@ -59,9 +59,9 @@ function Minimap.new(cfg, parent, renderer)
     self.coverage.AnchorPoint = Vector2.new(0.5,1)
     self.coverage.Position = UDim2.new(0.5,0,1,-3)
     self.coverage.Size = UDim2.new(1,-10,0,15)
-    self.coverage.TextColor3 = Color3.fromRGB(33,67,98)
+    self.coverage.TextColor3 = Color3.fromRGB(166,187,205)
     self.coverage.TextStrokeColor3=Color3.new(1,1,1)
-    self.coverage.TextStrokeTransparency=0.4
+    self.coverage.TextStrokeTransparency=1
     self.coverage.ZIndex=33
 
     self.map = frame(self.panel, "Map", Color3.fromRGB(233,249,242),25)
@@ -91,6 +91,7 @@ end
 function Minimap:Resize(viewportSize)
     local small=UserInputService.TouchEnabled or viewportSize.X<750
     self.side=small and (self.cfg.MinimapPhoneSize or 108) or (self.cfg.MinimapDesktopSize or 142)
+    if viewportSize.Y<500 then self.side=76 end
     local margin=small and 9 or 15
     self.panel.Position=UDim2.new(0,margin,1,-margin)
     self.panel.Size=UDim2.fromOffset(self.side+8,self.side+26)

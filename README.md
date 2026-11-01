@@ -1,18 +1,52 @@
-# Paintland V28 beta — arcade audio
+# Paintland V29 beta — refreshed UI and sound controls
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v28.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v29.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v28.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v29.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
 
-## V28 audio
+## V29 interface
+
+The start menu and gameplay HUD now use a consistent dark navy, mint and soft
+white palette. The menu has a clear primary action, selected-color checkmarks
+and brief play instructions. The territory meter separates its caption and value
+from the fill; elimination counts, leaderboard rows and the minimap share the
+same panel styling. Landscape phones use a smaller minimap and show two ranking
+rows to keep controls apart. The existing dedicated revive and victory screens
+remain in place.
+
+A **SOUND: OFF / ON** button sits at the bottom right in menus and gameplay.
+V29 starts **muted by default** to silence the placeholder pings. Toggling sound
+persists across replay/revive in the current session, but not across rejoining.
+It is hidden during the revive prompt. `SoundEnabled = false` is a hard disable;
+the button cannot override that setting.
+
+### Replace the sounds in Studio
+
+Open **StarterPlayer > StarterPlayerScripts > PaintlandClient > PaintlandModules > Config**.
+Edit the sound settings near the bottom:
+
+- `KillSoundIds`: a table of five audio asset IDs (numbers or `rbxassetid://...` strings), in kill order. The fifth repeats for subsequent kills. An empty table uses the placeholder pitched pings.
+- `CaptureSoundId`: your territory-capture sound. Leave the tier settings to retain the 5-point pitch changes.
+- `SpawnSoundId`, `DeathSoundId`, `VictorySoundId`: replace the other event cues separately. Set a cue to `""` to silence that event.
+- `SoundMutedByDefault`: set `false` after replacing the placeholder sounds if you want audio on when joining.
+- `SoundMasterVolume`, `KillSoundVolume`, `CaptureSoundVolume`: overall and reward volumes. Set a reward volume to `0` to silence just that category.
+- `SoundEnabled = false`: disable every cue immediately.
+
+Use audio you own or that your experience has permission to use. Copy the audio
+asset ID, not a model/decal ID. Check Studio Output for permission/loading errors.
+Change these settings in the **Config ModuleScript**, not in generated live
+Sound instances. If editing repository sources, change `model-source/Config.luau`
+and rebuild the `.rbxmx` model.
+
+## Audio cue behavior
 
 Kill cues rise through **five tones** using the existing life kill streak. Kills
 six and above repeat the exact fifth cue, with no further pitch increase. Death
@@ -29,7 +63,7 @@ trail-kill inheritance uses the kill cue so rewards don't double-play.
 Spawn, death and victory have distinct pitches too. Overlapping voices are
 bounded to five kill cues, three capture cues and one each for other events.
 
-The default is Roblox's bundled `electronicpingshort.wav` at different pitches,
+When unmuted, the fallback is Roblox's bundled `electronicpingshort.wav` at different pitches,
 so no uploaded sound ID is needed to try it. This creates an ascending arcade
 sequence; it does **not** include Valorant's recordings. To use five separate
 custom kill recordings, set `Config.KillSoundIds` to five audio IDs that your
@@ -42,6 +76,7 @@ Audio settings in `model-source/Config.luau`:
 | Setting | Default / behavior |
 | --- | --- |
 | `SoundEnabled` | `true`; set false to disable cues |
+| `SoundMutedByDefault` | `true`; placeholder pings start silent |
 | `SoundMasterVolume` | `0.65` |
 | `KillSoundPitches` | Five ascending default playback speeds |
 | `KillSoundIds` | Optional table of five custom asset IDs |
@@ -50,7 +85,7 @@ Audio settings in `model-source/Config.luau`:
 | `CaptureSoundSemitonesPerStep` | `0.6`; larger values give bigger pitch jumps |
 | `CaptureSoundId` | Replace with permitted audio for the capture cue |
 
-`AudioController:SetMuted(true/false)` supports a future settings menu. Sound
+The sound toggle calls `AudioController:SetMuted(true/false)`. Sound
 instances are reused and stopped on new runs/death; the controller also exposes
 `Destroy()` for teardown. No background music is included.
 
@@ -72,12 +107,15 @@ Output for sound loading/permission errors. Listen on a phone as well.
 
 All 41 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
-Audio tests cover kills 1–20, custom cue IDs, exact 5-point thresholds, tile mode,
+UI tests run the actual constructors/callbacks with minimal UI doubles, checking
+menu state, color selection, mute state and non-overlapping HUD panel bounds at
+eight viewport sizes. This does not verify actual rendering, text glyphs or device
+input. Audio tests cover kills 1–20, custom cue IDs, exact 5-point thresholds, tile mode,
 voice limits, mute, reset, death and teardown. Gameplay tests cover five capture/inheritance scenarios, the existing 74%-ownership/victory
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms seven original scripts changed and two audio modules were added.
+sources, preserves the original hierarchy/properties, and confirms ten original scripts changed and two audio modules were added.
 
 ```sh
 python3 tools/build_model.py

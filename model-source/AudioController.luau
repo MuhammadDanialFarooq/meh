@@ -6,7 +6,7 @@ local Audio = {}
 Audio.__index = Audio
 
 function Audio.new(cfg)
-    local self = setmetatable({cfg=cfg, muted=false, destroyed=false, pools={}, cursors={}}, Audio)
+    local self = setmetatable({cfg=cfg, muted=cfg.SoundMutedByDefault==true, destroyed=false, pools={}, cursors={}}, Audio)
     self.folder = Instance.new("Folder")
     self.folder.Name = "PaintlandAudio"
     self.folder.Parent = SoundService
@@ -39,7 +39,7 @@ function Audio:Play(channel, id, pitch, volume)
     local sound = pool[cursor]
     -- A channel reuses its oldest voice rather than allocating on every event.
     sound:Stop()
-    sound.SoundId = id
+    sound.SoundId = tostring(id):match("^%d+$") and ("rbxassetid://" .. id) or id
     sound.PlaybackSpeed = math.clamp(pitch or 1, 0.5, 3)
     sound.Volume = math.clamp(volume or 0.5, 0, 1)
     sound.TimePosition = 0
@@ -57,16 +57,16 @@ function Audio:Capture(count, playableTotal)
 end
 
 function Audio:Spawn()
-    self:Play("Spawn", self.cfg.SoundBaseId, 1.1, 0.3)
+    self:Play("Spawn", self.cfg.SpawnSoundId or self.cfg.SoundBaseId, 1.1, 0.3)
 end
 
 function Audio:Death()
     self:Reset()
-    self:Play("Death", self.cfg.SoundBaseId, 0.55, 0.45)
+    self:Play("Death", self.cfg.DeathSoundId or self.cfg.SoundBaseId, 0.55, 0.45)
 end
 
 function Audio:Victory()
-    self:Play("Victory", self.cfg.SoundBaseId, 1.8, 0.6)
+    self:Play("Victory", self.cfg.VictorySoundId or self.cfg.SoundBaseId, 1.8, 0.6)
 end
 
 function Audio:Reset()

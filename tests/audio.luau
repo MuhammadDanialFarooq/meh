@@ -25,6 +25,10 @@ assert(tileTier==5,"Raw tile gain mode failed")
 
 -- Controller runs against bounded Sound doubles, without emulating audio output.
 local Audio=loadModule("AudioController")
+local defaultAudio=Audio.new(cfg)
+assert(defaultAudio.muted,"Default placeholder sounds should start muted")
+defaultAudio:Destroy()
+cfg.SoundMutedByDefault=false
 local a=Audio.new(cfg)
 assert(#a.pools.Kill==5 and #a.pools.Capture==3,"Sound pools not bounded")
 for i=1,100 do a:Kill(i); a:Capture(i,10000) end

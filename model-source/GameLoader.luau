@@ -215,6 +215,7 @@ function Loader.Start()
     end
 
     ui = UIController.new(renderer, Config, {
+        onSoundToggle = function(muted) audio:SetMuted(muted) end,
         onPlay = function(skin)
             local ok, err = xpcall(function()
                 newMatch(skin)

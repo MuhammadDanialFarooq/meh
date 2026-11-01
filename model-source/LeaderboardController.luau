@@ -32,7 +32,7 @@ local function label(parent,name,value,size,depth)
     return gui(parent,"TextLabel",name,{
         BackgroundTransparency=1,Text=value,Font=Enum.Font.GothamBlack,
         TextSize=size,TextColor3=WHITE,TextStrokeColor3=INK,
-        TextStrokeTransparency=0.10,ZIndex=depth or 37,
+        TextStrokeTransparency=1,ZIndex=depth or 37,
     })
 end
 
@@ -42,11 +42,18 @@ function Leaderboard.new(parent,config)
     self.thumbnails=Avatars.new()
     self.compact=true
     self.panel=gui(parent,"Frame","ArcadeLeaderboard",{
-        BackgroundTransparency=1,BorderSizePixel=0,
+        BackgroundColor3=Color3.fromRGB(19,30,48),BackgroundTransparency=.06,BorderSizePixel=0,
         AnchorPoint=Vector2.new(1,0),
         Position=UDim2.new(1,-9,0,78),
         Size=UDim2.fromOffset(155,178),ZIndex=32,
     })
+    circle(self.panel,18)
+    stroke(self.panel,Color3.fromRGB(67,91,117),1)
+    local heading=label(self.panel,"Heading","TOP PAINTERS",10,36)
+    heading.TextColor3=Color3.fromRGB(166,187,205)
+    heading.Position=UDim2.fromOffset(12,8)
+    heading.Size=UDim2.new(1,-24,0,20)
+    heading.TextXAlignment=Enum.TextXAlignment.Left
     self.rows={}
     for n=1,math.min(4,config.LeaderboardRows or 4) do
         local row=gui(self.panel,"Frame","Rank"..n,{
@@ -59,8 +66,9 @@ function Leaderboard.new(parent,config)
             AnchorPoint=Vector2.new(1,0.5),
             Position=UDim2.new(1,0,0.5,0),
             Size=UDim2.new(1,-36,0,31),BorderSizePixel=0,
-            BackgroundColor3=ROW_COLORS[n],ZIndex=33,
+            BackgroundColor3=Color3.fromRGB(31,48,69),ZIndex=33,
         })
+        circle(bar,10)
         local avatar=gui(row,"ImageLabel","Avatar",{
             Position=UDim2.fromOffset(3,1),Size=UDim2.fromOffset(38,38),
             BorderSizePixel=0, BackgroundColor3=Color3.fromRGB(242,246,255),
@@ -92,7 +100,7 @@ function Leaderboard.new(parent,config)
         local crown=label(row,"Crown","👑",20,42)
         crown.Position=UDim2.fromOffset(11,-17)
         crown.Size=UDim2.fromOffset(28,22)
-        crown.Visible=n==1
+        crown.Visible=false
         self.rows[n]={row=row,bar=bar,avatar=avatar,fallback=fallback,rank=rank,
             percent=percent,name=name,crown=crown,userId=nil}
     end
@@ -100,20 +108,24 @@ function Leaderboard.new(parent,config)
 end
 
 function Leaderboard:Resize(viewport)
-    local narrow=UserInputService.TouchEnabled or viewport.X<750
+    local narrow=viewport.X<900
     self.compact=narrow
-    local width=narrow and math.clamp(viewport.X*0.35,116,135) or 220
-    local top=narrow and 122 or 124
-    self.panel.Position=UDim2.new(1,narrow and -4 or -16,0,top)
-    self.panel.Size=UDim2.fromOffset(width,190)
+    self.maxRows=viewport.Y<500 and 2 or #self.rows
+    local width=narrow and 160 or 220
+    self.panel.Position=UDim2.new(1,-12,0,narrow and 168 or 56)
+    self.panel.Size=UDim2.fromOffset(width,38+self.maxRows*40)
     for i,entry in ipairs(self.rows) do
-        entry.row.Position=UDim2.fromOffset(0,(i-1)*(narrow and 42 or 46))
-        entry.bar.Size=UDim2.new(1,narrow and -30 or -35,0,32)
+        entry.row.Visible=i<=self.maxRows
+        entry.row.Position=UDim2.fromOffset(8,32+(i-1)*40)
+        entry.row.Size=UDim2.new(1,-16,0,38)
+        entry.bar.Size=UDim2.new(1,-28,0,32)
+        entry.avatar.Size=UDim2.fromOffset(30,30)
+        entry.avatar.Position=UDim2.fromOffset(1,4)
         entry.name.Visible=not narrow
-        entry.percent.TextSize=narrow and 12 or 15
-        entry.avatar.Size=UDim2.fromOffset(narrow and 35 or 40,narrow and 35 or 40)
-        entry.avatar.Position=UDim2.fromOffset(3,1)
-        entry.crown.TextSize=narrow and 17 or 20
+        entry.name.Size=UDim2.new(1,-70,1,0)
+        entry.percent.TextSize=narrow and 12 or 13
+        entry.rank.Position=UDim2.fromOffset(0,24)
+        entry.crown.Visible=false
     end
 end
 
@@ -121,12 +133,14 @@ function Leaderboard:Update(ordered,leader,world)
     local total=world.grid.playableTotal
     for n,view in ipairs(self.rows) do
         local entity=ordered[n]
-        view.row.Visible=entity~=nil
+        view.row.Visible=entity~=nil and n<=(self.maxRows or #self.rows)
         if entity then
             local count=world.grid.counts[entity.id] or 0
-            view.percent.Text=string.format("%.2f%%",count/total*100)
+            view.percent.Text=string.format("%.2f%%",count/math.max(1,total)*100)
             view.name.Text=entity.name
-            view.crown.Visible=(entity==leader)
+            view.bar.BackgroundColor3=entity==leader and Color3.fromRGB(39,78,76) or Color3.fromRGB(31,48,69)
+            view.rank.BackgroundColor3=entity==leader and Color3.fromRGB(82,230,186) or WHITE
+            view.crown.Visible=false
             local id=entity.isHuman and Players.LocalPlayer.UserId or entity.robloxUserId
             if id~=view.userId then
                 view.userId=id
