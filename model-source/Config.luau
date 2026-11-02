@@ -214,4 +214,9 @@ Config.CaptureSoundSemitonesPerStep = 0.6
 Config.DefeatPlayIconId = ""
 Config.DefeatMenuIconId = ""
 
+-- Silent bot-only backdrop in the main menu.
+Config.MenuDemoBots = 8
+Config.MenuDemoRoundSeconds = 55
+Config.MenuDemoFollowSeconds = 12
+
 return Config

@@ -68,7 +68,7 @@ function UI.new(renderer,cfg,callbacks)
     self.minimap=MinimapController.new(cfg,self.hud,renderer)
 
     self.overlay=make(screen,"Frame","MenuOverlay",{Size=UDim2.fromScale(1,1),
-        BackgroundColor3=INK,BackgroundTransparency=.08,BorderSizePixel=0,ZIndex=40})
+        BackgroundColor3=INK,BackgroundTransparency=.55,BorderSizePixel=0,ZIndex=40})
     make(self.overlay,"UIGradient","Atmosphere",{Rotation=35,
         Color=ColorSequence.new(Color3.fromRGB(20,47,61),Color3.fromRGB(25,24,52))})
     self.card=make(self.overlay,"Frame","MenuCard",{AnchorPoint=Vector2.new(.5,.5),

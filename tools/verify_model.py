@@ -3,7 +3,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 a = ET.parse(ROOT / 'models/PaintlandClient_v26.rbxmx').getroot()
-b = ET.parse(ROOT / 'dist/PaintlandClient_v34.rbxmx').getroot()
+b = ET.parse(ROOT / 'dist/PaintlandClient_v35.rbxmx').getroot()
 changed, added = set(), set()
 for parent in list(b.iter('Item')):
     for item in list(parent.findall('Item')):
@@ -11,7 +11,7 @@ for parent in list(b.iter('Item')):
         if props is None:
             continue
         name = props.find("string[@name='Name']").text
-        if name in {'AudioCues', 'AudioController', 'TrailMerge'}:
+        if name in {'AudioCues', 'AudioController', 'TrailMerge', 'MenuDemo'}:
             assert item.get('class') == 'ModuleScript'
             assert props.find("ProtectedString[@name='Source']").text == (ROOT / 'model-source' / f'{name}.luau').read_text()
             assert parent.find("Properties/string[@name='Name']").text == 'PaintlandModules'
@@ -30,5 +30,5 @@ for old, new in zip(a.iter('Item'), b.iter('Item'), strict=True):
         os.text = ns.text = 'SOURCE'
 assert ET.tostring(a) == ET.tostring(b), 'Existing non-source model data changed'
 assert changed == {'Config','Grid','MinimapController','RegressionTests','TerritorySystem','World','GameLoader','HUDCanvas','UIController','LeaderboardController','ReviveController','Trails','CollisionSystem','Renderer','ArcadeEffects','ToyWorldFX','CaptureParticles','MotionEffects','LandMergeEffects','TerritoryVFX','KillFeedback'}
-assert added == {'AudioCues', 'AudioController', 'TrailMerge'}
-print('PASS: 42 sources round-trip; 21 original scripts changed and 3 modules added; original properties preserved')
+assert added == {'AudioCues', 'AudioController', 'TrailMerge', 'MenuDemo'}
+print('PASS: 43 sources round-trip; 21 original scripts changed and 4 modules added; original properties preserved')

@@ -58,6 +58,7 @@ local playSkin,muted
 local ui=loadModule("UIController").new(renderer,uiCfg,{
     onPlay=function(skin) playSkin=skin end,onSoundToggle=function(value) muted=value end})
 assert(ui.overlay.Visible and not ui.hud.Visible,"Menu visibility broken")
+assert(ui.overlay.BackgroundTransparency>=.5,"Menu tint hides the live match")
 assert(ui.soundButton.Text=="SOUND: OFF","UI did not reflect muted default")
 ui.soundButton.Activated:Fire()
 assert(muted==false and ui.soundButton.Text=="SOUND: ON","Unmute button failed")

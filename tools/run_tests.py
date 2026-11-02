@@ -7,7 +7,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 cli = os.environ.get('LUAU_BIN', '/tmp/paintland-luau/luau')
 source_dir = Path(os.environ.get('PAINTLAND_SOURCE_DIR', ROOT / 'model-source'))
-modules = ['TrailMerge','Config','Grid','Trails','Movement','BotAI','CollisionSystem',
+modules = ['MenuDemo','TrailMerge','Config','Grid','Trails','Movement','BotAI','CollisionSystem',
            'TerritorySystem','SpawnService','World','RegressionTests','ChunkGeometry','MinimapController','AudioCues','AudioController','AvatarThumbnails','LeaderboardService','LeaderboardController','HUDCanvas','UIController','ReviveController','KillFeedback','ArcadeEffects','LandMergeEffects']
 code = (ROOT / 'tests/runtime.luau').read_text()
 code += '\nlocal factories, cache = {}, {}\nlocal loadModule\n'
@@ -25,6 +25,7 @@ loadModule("RegressionTests").Run(loadModule("Config"))
 code += (ROOT / 'tests/minimap.luau').read_text()
 code += (ROOT / 'tests/audio.luau').read_text()
 code += (ROOT / 'tests/trail_merge.luau').read_text()
+code += (ROOT / 'tests/menu_demo.luau').read_text()
 code += (ROOT / 'tests/ui.luau').read_text()
 code += (ROOT / 'tests/effects.luau').read_text()
 with tempfile.TemporaryDirectory(prefix='paintland-tests-') as tmp:

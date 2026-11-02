@@ -1,16 +1,40 @@
-# Paintland V34 beta — larger minimap and reference death screen
+# Paintland V35 beta — live bot match behind the main menu
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v34.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v35.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v34.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v35.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V35 live main-menu backdrop
+
+Opening the game or returning to Main Menu starts an independent, silent
+bot-only match behind the translucent menu. Eight bots move, draw trails, capture
+land, eliminate each other and respawn using the actual game simulation. The
+camera gently follows a bot and periodically changes targets; a dead target is
+replaced. The background resets after 55 seconds or completion so the menu does
+not settle into an empty/end-state arena.
+
+Pressing Play stops the demo and creates a fresh human match. Demo ownership,
+stats, trails and effects do not carry over. It has no player input, audio reward,
+purchase/revive or gameplay HUD callbacks. The death screen still freezes the
+player's game until Play Again or Main Menu is selected. Returning to Main Menu
+then starts a new demo rather than resuming the dead player's round.
+
+Adjust `MenuDemoBots`, `MenuDemoRoundSeconds` and `MenuDemoFollowSeconds` in
+Config. No extra service, animation asset or background task is required. The
+existing render-step loop advances the demo and stops doing so on Play.
+
+Headless tests run demo movement/captures/respawns, dead-camera-target replacement,
+completion/timed resets and the stopped-demo-to-fresh-game handoff. They cannot
+verify the actual camera composition or device frame rates; check the main menu
+in Studio and on a phone, then Play, die, return to menu, and Play again.
 
 ## V34 clarified map size
 
@@ -221,7 +245,7 @@ Output for sound loading/permission errors. Listen on a phone as well.
 
 ## Validation
 
-All 42 scripts compiled with the official Luau compiler. Headless tests execute the
+All 43 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
 UI tests run the actual constructors/callbacks with minimal UI doubles, checking
 menu/defeat state, death stat snapshots, revive expiry/decline/unavailability,
@@ -232,7 +256,7 @@ voice limits, mute, reset, death and teardown. Gameplay tests cover five capture
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and three modules were added.
+sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and four modules were added.
 
 ```sh
 python3 tools/build_model.py

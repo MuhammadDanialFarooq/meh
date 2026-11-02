@@ -25,6 +25,8 @@ local VictoryWorldFX = require(Modules.VictoryWorldFX)
 
 local AudioController = require(Modules.AudioController)
 
+local MenuDemo = require(Modules.MenuDemo)
+
 local Loader = {}
 
 function Loader.Start()
@@ -55,23 +57,43 @@ function Loader.Start()
     local hudTimer = 0
     local ui, revive, victory
     local victoryFX = VictoryWorldFX.new(renderer, Config)
-    local newMatch
+    local newMatch, startMenu
+    local function clearPresentation()
+        victoryFX:Clear();particles:Clear();mergeEffects:Clear();audio:Reset()
+        killFeedback:Reset();arcadeEffects:Clear();motionEffects:Clear();toyFX:Clear()
+        expandCombo:Reset();territoryVFX:Clear()
+    end
+    local demo=MenuDemo.new(Config,renderer,{
+        onReset=clearPresentation,
+        onCapture=function(e,count,cells,demoWorld)
+            if count>0 then
+                territoryVFX:Play(e,count,cells,demoWorld.grid)
+                toyFX:Capture(e,count)
+            end
+        end,
+        onMerge=function(killer,victim,cells,hit)
+            mergeEffects:Emit(killer,victim,cells,hit)
+        end,
+        onEliminate=function(victim,killer,_,hit)
+            toyFX:Elimination(victim,killer,hit)
+        end,
+    })
+    startMenu=function()
+        running=false;frozenForRevive=false
+        if revive then revive:Close() end
+        if victory then victory:Hide() end
+        world=demo:Start()
+        camera:Reset(demo.focus)
+        ui:SetMode("menu")
+    end
 
     -- A fresh game clears all previous actors, bots, trails, land and minimap data.
     newMatch = function(skin)
         -- Replay is the ONLY action that discards a completed arena.
         if victory then victory:Hide() end
-        victoryFX:Clear()
+        demo:Stop()
         frozenForRevive = false
-        particles:Clear()
-        mergeEffects:Clear()
-        audio:Reset()
-        killFeedback:Reset()
-        arcadeEffects:Clear()
-        motionEffects:Clear()
-        toyFX:Clear()
-        expandCombo:Reset()
-        territoryVFX:Clear()
+        clearPresentation()
         if ui then ui:NewRun() end
         running = true
         if revive then revive:NewRun() end
@@ -217,12 +239,7 @@ function Loader.Start()
 
     ui = UIController.new(renderer, Config, {
         onSoundToggle = function(muted) audio:SetMuted(muted) end,
-        onMainMenu = function()
-            running=false
-            frozenForRevive=false
-            if revive then revive:Close() end
-            audio:Reset()
-        end,
+        onMainMenu = function() startMenu() end,
         onPlay = function(skin)
             local ok, err = xpcall(function()
                 newMatch(skin)
@@ -255,12 +272,18 @@ function Loader.Start()
         end,
     })
 
+    startMenu()
+
     local lastFrameError = nil
     local function updateFrame(dt)
         if not renderer.screen.Parent then return end
         local realDt = dt
         dt = math.min(dt, 0.08)
-        if running and not frozenForRevive and world then
+        if demo.active then
+            demo:Update(realDt)
+            world=demo.world
+            camera:Update(demo.focus,dt)
+        elseif running and not frozenForRevive and world then
             local steps = math.min(Config.MaxSubsteps,
                 math.max(1, math.ceil(dt / Config.SimulationSubstep)))
             local each = math.min(dt / steps, Config.SimulationSubstep)
@@ -271,7 +294,7 @@ function Loader.Start()
                 if frozenForRevive or (world and world.completed) then break end
             end
         end
-        if world then
+        if world and not demo.active then
             local player = world.entities[1]
             if player and player.alive then camera:Update(player.pos, dt) end
         end
@@ -286,17 +309,17 @@ function Loader.Start()
             killFeedback:Update(realDt)
             mergeEffects:Update(realDt)
         end
-        if world and world.completed and victory and not victory.active then
+        if not demo.active and world and world.completed and victory and not victory.active then
             -- Backup if an earlier presentation callback was interrupted.
             running = false
             local ok, err = pcall(function() victory:Show(world) end)
             if not ok then warn("[Paintland V26] Victory screen retry failed: " .. tostring(err)) end
         end
-        ui.minimap:Render(dt, camera.position)
+        if not demo.active then ui.minimap:Render(dt, camera.position) end
         if victory then victory:Update(realDt) end
         -- Countdown uses real elapsed frame time, not capped simulation delta.
         revive:Update(realDt)
-        if world then
+        if world and not demo.active then
             -- Diagnostic only when near completion. Actual completion is
             -- inside World and never depends on this HUD refresh.
             hudTimer += dt
@@ -320,7 +343,7 @@ function Loader.Start()
             end
         end
     end)
-    return {Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
+    return {MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
         Particles = particles, Camera = camera, KillFeedback = killFeedback,
         LandMergeEffects = mergeEffects, ArcadeEffects = arcadeEffects, MotionEffects = motionEffects,
         ExpandCombo = expandCombo, TerritoryVFX = territoryVFX, Cosmetics = CosmeticController,
