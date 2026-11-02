@@ -1,6 +1,6 @@
 local Config = {}
 
-Config.Grid = 112
+Config.Grid = 144 -- V33: larger playable arena (same tile size and movement speed).
 Config.Cell = 4
 Config.Chunk = 28
 Config.BotCount = 12
@@ -104,7 +104,7 @@ Config.ArenaTileStuds = 16
 Config.ArenaGridThickness = 0.10
 Config.ArenaGridColor = Color3.fromRGB(219, 222, 228)
 Config.CameraTiltDegrees = 21
-Config.MobileWorldViewHeight = 144
+Config.MobileWorldViewHeight = 124
 Config.MouseWorldDeadzone = 2.5
 Config.Colors = {
     Color3.fromRGB(23, 196, 158),
@@ -145,7 +145,7 @@ Config.Use3DTerritoryBackup = true -- single 3D land layer only
 Config.WorkspaceBorderWidth = 6
 Config.WorkspaceBorderInnerWidth = 2
 Config.WorkspaceCameraFOV = 48
-Config.WorldViewHeightStuds = 124
+Config.WorldViewHeightStuds = 112
 Config.CharacterHeight = 3.7
 Config.DisableMobileCameraKick = true
 Config.CameraSpringFrequency = 14
@@ -209,5 +209,9 @@ Config.CaptureSoundMetric = "Percentage" -- "Tiles" uses raw cell gain instead.
 Config.CaptureSoundStep = 5 -- 0..<5, 5..<10, 10..<15 percentage points gained per capture.
 Config.CaptureSoundBasePitch = 0.9
 Config.CaptureSoundSemitonesPerStep = 0.6
+
+-- Optional full-image replacements for the death buttons. Empty = Material sprite icons.
+Config.DefeatPlayIconId = ""
+Config.DefeatMenuIconId = ""
 
 return Config

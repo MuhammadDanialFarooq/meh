@@ -104,13 +104,28 @@ local world={entities={{kills=7}},grid={counts={[1]=224},playableTotal=1000}}
 ui:RecordDefeat(world)
 world.grid.counts[1]=10
 ui:ShowDefeat(world)
-assert(ui.mode=="defeat" and ui.overlay.Visible and not ui.hud.Visible,"Defeat overlay not exclusive")
-assert(ui.result.Text=="22.4% CONQUERED\n224 tiles  ·  7 eliminations","Death snapshot changed")
+assert(ui.mode=="defeat" and ui.defeatOverlay.Visible and not ui.overlay.Visible and not ui.hud.Visible,"Defeat overlay not exclusive")
+assert(ui.result.Text=="You conquered 22.4% land" and ui.defeatDetails.Text=="224 tiles  ·  7 eliminations","Death snapshot changed")
 assert(not ui.skins[1].button.Visible and ui.result.Visible,"Color selector covers results")
 playSkin=nil
-ui.play.Activated:Fire()
+ui.returnMenu.Activated:Fire()
 assert(ui.mode=="menu" and playSkin==nil and ui.skins[1].button.Visible and not ui.result.Visible,
     "Defeat button restarted gameplay instead of returning to menu")
+assert(ui.defeatOverlay.BackgroundColor3.R==0 and ui.defeatOverlay.BackgroundTransparency>.2
+    and ui.defeatOverlay.BackgroundTransparency<.8,"Defeat did not preserve game through black tint")
+assert(ui.replay:FindFirstChild("Icon").ClassName=="ImageLabel" and
+    ui.returnMenu:FindFirstChild("Icon").ClassName=="ImageLabel","Death button icons are not images")
+ui:ShowDefeat(world);playSkin=nil;ui.replay.Activated:Fire()
+assert(playSkin==3,"Play Again lost selected color or did not start a run")
+for _,size in ipairs({{320,568},{375,667},{640,360},{844,390},{1280,720}}) do
+    viewport.AbsoluteSize=Vector2.new(size[1],size[2]);ui:Resize()
+    local scale=ui.defeatScale.Scale
+    assert(scale>0 and 420*scale<=size[1]-32+1e-6 and 350*scale<=size[2]-64+1e-6,
+        "Death layout leaves viewport")
+    assert(ui.replay.Position.Y.Offset+ui.replay.Size.Y.Offset<ui.returnMenu.Position.Y.Offset,
+        "Death actions overlap")
+    assert(ui.replay.Size.Y.Offset*scale>=44-1e-6,"Death buttons are too small for touch")
+end
 ui:NewRun();assert(ui.defeatStats==nil,"New run retained stale defeat stats")
 
 local Revive=loadModule("ReviveController")

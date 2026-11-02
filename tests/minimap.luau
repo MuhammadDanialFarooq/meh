@@ -6,10 +6,10 @@ for _,side in ipairs({108,142}) do
     for i=1,g.total do
         if g.mask[i] then g:Set(i,(i%3)+1) end
     end
-    local m=setmetatable({cfg=cfg,side=side,chunksWide=4,chunkPools={},areas={},
+    local m=setmetatable({cfg=cfg,side=side,chunksWide=math.ceil(cfg.Grid/cfg.Chunk),chunkPools={},areas={},
         world={grid=g,entities={{color=cfg.Colors[1]},{color=cfg.Colors[2]},{color=cfg.Colors[3]}}}},Minimap)
     local pixels={}
-    for id=1,16 do
+    for id=1,m.chunksWide^2 do
         m:RebuildChunk(id)
         for _,rect in ipairs(m.chunkPools[id]) do
             if rect.Visible then

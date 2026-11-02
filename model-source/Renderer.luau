@@ -100,7 +100,10 @@ end
 function Renderer:Resize()
     local view = self.viewport.AbsoluteSize
     if view.Y > 1 then
-        self.pixelScale = view.Y / (self.cfg.WorldViewHeightStuds or 120)
+        local touch=game:GetService("UserInputService").TouchEnabled
+        local visible=(touch or view.X<650) and (self.cfg.MobileWorldViewHeight or 124)
+            or (self.cfg.WorldViewHeightStuds or 112)
+        self.pixelScale = view.Y / visible
     end
 end
 

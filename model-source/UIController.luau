@@ -104,26 +104,62 @@ function UI.new(renderer,cfg,callbacks)
             end
         end)
     end
-    self.result=text(self.card,"DefeatResult","",26,MINT)
-    self.result.Position=UDim2.fromOffset(32,194)
-    self.result.Size=UDim2.fromOffset(356,92)
-    self.result.TextWrapped=true
-    self.result.Visible=false
     self.play=button(self.card,"Play","LET'S PAINT  →",MINT)
     self.play.Position=UDim2.fromOffset(36,311);self.play.Size=UDim2.fromOffset(348,58)
     self.play.TextSize=19
     self.play.Activated:Connect(function()
-        if self.mode=="defeat" then
-            if callbacks.onMainMenu then callbacks.onMainMenu() end
-            self:SetMode("menu")
-            return
-        end
         if (self.mode=="menu" or self.mode=="win") and callbacks.onPlay then callbacks.onPlay(self.skin) end
     end)
     self.help=text(self.card,"Help","Close a loop to claim land.\nCut a rival's trail to take them out.",12,MUTED)
     self.help.Font=Enum.Font.GothamMedium
     self.help.TextWrapped=true
     self.help.Position=UDim2.fromOffset(32,388);self.help.Size=UDim2.fromOffset(356,42)
+    -- Separate, transparent results layout: the frozen arena is the backdrop.
+    self.defeatOverlay=make(screen,"Frame","DefeatOverlay",{Size=UDim2.fromScale(1,1),
+        BackgroundColor3=Color3.new(0,0,0),BackgroundTransparency=.45,BorderSizePixel=0,
+        Visible=false,Active=true,ZIndex=100})
+    self.defeatGroup=make(self.defeatOverlay,"Frame","DefeatContent",{
+        AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
+        Size=UDim2.fromOffset(420,350),BackgroundTransparency=1,ZIndex=101})
+    self.defeatScale=make(self.defeatGroup,"UIScale","ResponsiveScale",{Scale=1})
+    local deathTitle=text(self.defeatGroup,"OOF","OOF",56,Color3.fromRGB(255,45,45),102)
+    deathTitle.Font=Enum.Font.GothamBlack
+    deathTitle.Position=UDim2.fromOffset(0,24);deathTitle.Size=UDim2.fromOffset(420,72)
+    deathTitle.TextStrokeColor3=Color3.new(0,0,0);deathTitle.TextStrokeTransparency=0
+    self.result=text(self.defeatGroup,"Conquered","You conquered 0.0% land",22,WHITE,102)
+    self.result.Position=UDim2.fromOffset(8,102);self.result.Size=UDim2.fromOffset(404,38)
+    self.result.TextStrokeColor3=Color3.new(0,0,0);self.result.TextStrokeTransparency=0
+    self.defeatDetails=text(self.defeatGroup,"RunDetails","",13,WHITE,102)
+    self.defeatDetails.Position=UDim2.fromOffset(8,140);self.defeatDetails.Size=UDim2.fromOffset(404,24)
+    self.defeatDetails.TextStrokeColor3=Color3.new(0,0,0);self.defeatDetails.TextStrokeTransparency=.25
+    local function deathButton(name,value,color,y,image,offset)
+        local b=make(self.defeatGroup,"TextButton",name,{Text=value,TextSize=20,
+            Font=Enum.Font.GothamBlack,TextColor3=INK,BackgroundColor3=color,
+            BorderSizePixel=0,AutoButtonColor=true,ZIndex=103,
+            Position=UDim2.fromOffset(40,y),Size=UDim2.fromOffset(340,68)})
+        round(b,8)
+        local custom=image and image~="" and image~=0
+        local id=custom and tostring(image) or "rbxassetid://3926305904"
+        if id:match("^%d+$") then id="rbxassetid://"..id end
+        make(b,"ImageLabel","Icon",{BackgroundTransparency=1,Image=id,ImageColor3=INK,
+            AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(0,43,.5,0),
+            Size=UDim2.fromOffset(28,28),ZIndex=104,
+            ImageRectOffset=custom and Vector2.zero or offset,
+            ImageRectSize=custom and Vector2.zero or Vector2.new(36,36)})
+        return b
+    end
+    self.replay=deathButton("PlayAgain","PLAY AGAIN",Color3.fromRGB(0,237,120),188,
+        cfg.DefeatPlayIconId,Vector2.new(764,244))
+    self.returnMenu=deathButton("MainMenu","MAIN MENU",Color3.fromRGB(255,238,30),268,
+        cfg.DefeatMenuIconId,Vector2.new(964,204))
+    self.replay.Activated:Connect(function()
+        if self.mode=="defeat" and callbacks.onPlay then callbacks.onPlay(self.skin) end
+    end)
+    self.returnMenu.Activated:Connect(function()
+        if self.mode~="defeat" then return end
+        if callbacks.onMainMenu then callbacks.onMainMenu() end
+        self:SetMode("menu")
+    end)
     self.soundButton=button(screen,"ToggleSound","SOUND: OFF",PANEL,150)
     self.soundButton.TextColor3=MUTED;self.soundButton.TextSize=11
     self.soundButton.AnchorPoint=Vector2.new(1,1)
@@ -156,6 +192,7 @@ function UI:Resize()
     self.killCard.Size=UDim2.fromOffset(narrow and 116 or 142,60)
     self.killCounter.Size=UDim2.new(1,-24,0,28)
     self.menuScale.Scale=math.min(1,(s.X-32)/420,(s.Y-110)/460)
+    self.defeatScale.Scale=math.min(1,(s.X-32)/420,(s.Y-64)/350)
     self.toast.Size=UDim2.fromOffset(math.min(s.X-24,320),30)
     self.soundButton.Position=UDim2.new(1,-12,1,-12)
     self.soundButton.Size=UDim2.fromOffset(132,44)
@@ -165,7 +202,8 @@ function UI:NewRun()
 end
 function UI:SetMode(mode)
     self.mode=mode
-    self.overlay.Visible=mode=="menu" or mode=="win" or mode=="defeat"
+    self.overlay.Visible=mode=="menu" or mode=="win"
+    self.defeatOverlay.Visible=mode=="defeat"
     self.hud.Visible=mode~="menu" and mode~="win" and mode~="defeat"
     self.result.Visible=mode=="defeat"
     self.skinTitle.Visible=mode~="defeat"
@@ -173,7 +211,7 @@ function UI:SetMode(mode)
     self.title.TextColor3=mode=="defeat" and Color3.fromRGB(255,142,146) or WHITE
     self.badge.Text=mode=="defeat" and "ROUND COMPLETE" or "PAINT. CAPTURE. REPEAT."
     self.help.Text="Close a loop to claim land.\nCut a rival's trail to take them out."
-    self.soundButton.Visible=mode~="revive" -- don't cover the revive action area
+    self.soundButton.Visible=mode~="revive" and mode~="defeat" -- don't cover the revive action area
     if mode=="menu" then
         self.title.Text="PAINTLAND"
         self.subtitle.Text="A little color. A lot of territory."
@@ -200,8 +238,8 @@ end
 function UI:ShowDefeat(world)
     if not self.defeatStats then self:RecordDefeat(world) end
     local stats=self.defeatStats
-    self.result.Text=string.format("%.1f%% CONQUERED\n%d tiles  ·  %d eliminations",
-        math.min(99.9,stats.percent),stats.count,stats.kills)
+    self.result.Text=string.format("You conquered %.1f%% land",math.min(99.9,stats.percent))
+    self.defeatDetails.Text=string.format("%d tiles  ·  %d eliminations",stats.count,stats.kills)
     self:SetMode("defeat")
 end
 function UI:Toast(message,color)
@@ -227,6 +265,6 @@ function UI:Destroy()
     self.toastVersion+=1
     if self.resize then self.resize:Disconnect() end
     self.progress:Destroy();self.leaderboard:Destroy();self.minimap:Destroy()
-    self.hud:Destroy();self.overlay:Destroy();self.soundButton:Destroy()
+    self.hud:Destroy();self.overlay:Destroy();self.defeatOverlay:Destroy();self.soundButton:Destroy()
 end
 return UI

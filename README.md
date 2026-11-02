@@ -1,16 +1,43 @@
-# Paintland V32 beta — reference-inspired capture and kill effects
+# Paintland V33 beta — transparent death screen and larger arena
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v32.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v33.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v32.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v33.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V33 death screen and arena scale
+
+The death screen now follows the supplied layout: a red **OOF**, white
+**You conquered X% land** text, a green **PLAY AGAIN** button and a yellow
+**MAIN MENU** button. The frozen game remains visible through a translucent black
+overlay. There is no solid menu card or gradient on the death screen. Tile count
+and eliminations appear as smaller secondary text. Play Again starts a clean run
+with the selected color; Main Menu returns to color selection without starting.
+Buttons use ImageLabel icons from the common Material icon atlas. Optional
+`DefeatPlayIconId` and `DefeatMenuIconId` in Config replace them with full custom
+image assets (numbers or `rbxassetid://...` strings); cropping is removed for custom
+images. Those images must be accessible to the experience. Check them in Studio.
+
+The playable grid increases from 112 to 144 cells per side while retaining tile
+size and movement speed. This gives more arena space without inflating individual
+tiles. The camera is also closer: `WorldViewHeightStuds=112` on desktop and
+`MobileWorldViewHeight=124` on phones. A smaller view-height value zooms closer;
+`Grid` changes actual map size. Renderer effect scaling now uses the matching
+phone/desktop view height. The minimap panel size is unchanged.
+
+The larger arena increases the amount of grid work and should be checked on
+phones. Headless capture, minimap, join, victory and UI checks run with the new
+size; this does not establish device frame rates. Death-screen layout tests cover
+portrait/landscape bounds, separated actions, touch target size, preserved death
+stats, replay/menu routing, black tint and image-icon objects. A Studio visual
+playtest against the reference remains necessary.
 
 ## V32 reference-inspired effects
 
