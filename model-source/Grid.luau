@@ -324,12 +324,49 @@ end
 
 -- Defeated land transfers without manufacturing thin neutral corridors.
 -- Disconnected inherited islands are valid ownership, just like preserved land.
-function Grid:AbsorbDefeatedLand(victimId, killerId)
+function Grid:AbsorbDefeatedLand(victimId, killerId, route)
     local taken, claimedCount = {}, 0
     if victimId == killerId then return taken, 0 end
     if not killerId or killerId <= 0 then
         self:TransferAll(victimId, 0)
         return taken, 0
+    end
+    -- Flood from the actual cut, using recorded trails and the two owners' land.
+    -- Never search arbitrary neutral ground or steal intervening rival territory.
+    local connected=false
+    if route and route.cells and route.cut then
+        local seen,queue={},{}
+        local hasKiller,hasVictim=false,false
+        local function visit(index)
+            if not index or seen[index] or not self.mask[index] then return end
+            local owner=self.owners[index]
+            if owner==killerId or owner==victimId or (owner==0 and route.cells[index]) then
+                seen[index]=true;queue[#queue+1]=index
+                hasKiller=hasKiller or owner==killerId
+                hasVictim=hasVictim or owner==victimId
+            end
+        end
+        visit(route.cut)
+        local head=1
+        while head<=#queue do
+            local index=queue[head];head+=1
+            local x,y=(index-1)%self.size+1,math.floor((index-1)/self.size)+1
+            if x>1 then visit(index-1) end
+            if x<self.size then visit(index+1) end
+            if y>1 then visit(index-self.size) end
+            if y<self.size then visit(index+self.size) end
+        end
+        connected=hasKiller and hasVictim and seen[route.contact]==true
+        for _,index in ipairs(route.required or {}) do
+            if not seen[index] then connected=false;break end
+        end
+        if connected then
+            for index in pairs(route.cells) do
+                if seen[index] and self.owners[index]==0 and self:Set(index,killerId) then
+                    taken[index]=true;claimedCount+=1
+                end
+            end
+        end
     end
     for i = 1, self.total do
         if self.owners[i] == victimId and self:Set(i, killerId) then
@@ -337,7 +374,7 @@ function Grid:AbsorbDefeatedLand(victimId, killerId)
             claimedCount += 1
         end
     end
-    return taken, claimedCount
+    return taken, claimedCount, connected
 end
 
 function Grid:TransferAll(fromId, toId)

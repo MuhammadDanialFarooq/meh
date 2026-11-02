@@ -86,9 +86,9 @@ Config.ImpactShowBotCaptures = true
 Config.MotionEffectsEnabled = true
 Config.MotionDustPool = 14
 Config.MotionDustInterval = 0.095
--- V27: Defeated bot land transfers directly, without artificial corridors.
+-- V31: Trail kills connect via recorded trails; other inheritance transfers directly.
 -- The local HUMAN's land is reserved during their revive decision.
-Config.DeathLandMergeMode = "DirectTakeover"
+Config.DeathLandMergeMode = "TrailTakeover"
 Config.TerritoryMergeEffectsEnabled = true
 Config.TerritoryMergeOverlayLimit = 170
 Config.TerritoryMergeDuration = 0.45

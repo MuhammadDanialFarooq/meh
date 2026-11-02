@@ -1,16 +1,41 @@
-# Paintland V30 beta — defeat results and main menu flow
+# Paintland V31 beta — trail-following territory joins
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v30.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v31.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v30.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v31.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V31 trail joins — game loop before abilities
+
+Cutting an exposed bot trail now preserves the hit cell and the trail route before
+the victim's trail is cleared. The connection follows your active trail to the
+cut, then the defeated trail back to its starting territory. The defeated trail's
+loose tail beyond the hit is not painted. Successful joins convert the recorded
+route into land, transfer the victim's territory, and clear the consumed trail
+collision buckets. Grid counters, minimap chunks and land rendering all receive
+the same ownership updates. Small adjacent-cell gaps from collision tolerance are
+bridged locally; no arbitrary map-wide shortcut is searched.
+
+A route crossing a third owner's territory is blocked: that land is not stolen
+to manufacture a join. Victim land still transfers, but the killer keeps their
+unfinished trail and disconnected inheritance may remain. Captured or previously
+split islands can also remain separate. Enclosure kills without a trail-contact
+point retain direct inheritance. The human's land remains reserved while their
+revive choice is pending, as in earlier versions.
+
+Automated tests exercise real collision-to-elimination flow on a bent trail,
+verify 4-connected ownership, exclude the dangling tail, test adjacent-cell
+radius hits, exact counters, renderer/minimap invalidation, cleared trail buckets,
+and blocked third-party crossings. Studio playtesting is still required: cut a
+bot midway along an L-shaped path and follow the new colored connection home.
+Abilities are intentionally deferred until the core game loop is settled.
 
 ## V30 defeat results
 
@@ -117,7 +142,7 @@ Output for sound loading/permission errors. Listen on a phone as well.
 ## Changes
 
 - Fully enclosed regions are captured even when larger than the exterior. The last interior pocket can complete the arena. When a loop divides the circular wall, the largest boundary-connected component remains exterior; smaller sides are captured. This explicit rule preserves the beta's wall-capture convention.
-- Defeated bots transfer their actual territory directly, including islands separated by other players. No artificial connecting strips are drawn across neutral ground, and third-party land is preserved. Inherited islands may appear as separate colored patches; that reflects ownership.
+- Defeated bots transfer their actual territory; trail kills now join it via the recorded route when unobstructed, including support for inherited islands. No artificial connecting strips are drawn across neutral ground, and third-party land is preserved. Inherited islands may appear as separate colored patches; that reflects ownership.
 - Capture checks repeat after inheritance so another head covered by transferred land is eliminated in the same operation.
 - Elimination presentation callbacks cannot interrupt simulation completion if an effect throws.
 - Minimap rectangles use shared integer pixel edges, eliminating fractional overlaps/gaps. The inaccurate camera rectangle is hidden. A rounded square frame and separate percentage footer improve readability without covering the map.
@@ -125,7 +150,7 @@ Output for sound loading/permission errors. Listen on a phone as well.
 
 ## Validation
 
-All 41 scripts compiled with the official Luau compiler. Headless tests execute the
+All 42 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
 UI tests run the actual constructors/callbacks with minimal UI doubles, checking
 menu/defeat state, death stat snapshots, revive expiry/decline/unavailability,
@@ -136,7 +161,7 @@ voice limits, mute, reset, death and teardown. Gameplay tests cover five capture
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms eleven original scripts changed and two audio modules were added.
+sources, preserves the original hierarchy/properties, and confirms thirteen original scripts changed and three modules were added.
 
 ```sh
 python3 tools/build_model.py

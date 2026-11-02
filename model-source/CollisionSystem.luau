@@ -5,14 +5,14 @@ local CollisionSystem = {}
 function CollisionSystem.Check(world, mover, position, time)
     if world.completed then return false end
     local victims = world.trails:HitList(mover, position, time)
-    for id in pairs(victims) do
+    for id, hit in pairs(victims) do
         local victim = world.entities[id]
         if victim and victim.alive then
             if victim.id == mover.id then
                 world:Eliminate(mover, mover, "self-trail")
                 return false
             end
-            world:Eliminate(victim, mover, "trail")
+            world:Eliminate(victim, mover, "trail", nil, {index=hit.index,position=position})
         end
     end
     return mover.alive

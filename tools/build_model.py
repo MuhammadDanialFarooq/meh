@@ -27,16 +27,16 @@ assert modules_folder is not None and module_template is not None
 for path in sorted((ROOT / 'model-source').glob('*.luau')):
     if path.stem in names:
         continue
-    assert path.stem in {'AudioCues', 'AudioController'}, f'Unexpected new module: {path.stem}'
+    assert path.stem in {'AudioCues', 'AudioController', 'TrailMerge'}, f'Unexpected new module: {path.stem}'
     module = deepcopy(module_template)
-    module.set('referent', 'RBXPaintlandV30' + path.stem)
+    module.set('referent', 'RBXPaintlandV31' + path.stem)
     props = module.find('Properties')
     props.find("string[@name='Name']").text = path.stem
     props.find("ProtectedString[@name='Source']").text = path.read_text()
     modules_folder.append(module)
     names.add(path.stem)
 assert names == {p.stem for p in (ROOT / 'model-source').glob('*.luau')}
-out = ROOT / 'dist/PaintlandClient_v30.rbxmx'
+out = ROOT / 'dist/PaintlandClient_v31.rbxmx'
 out.parent.mkdir(exist_ok=True)
 tree.write(out, encoding='utf-8', xml_declaration=True)
 print(f'Built {out.name}: {len(names)} scripts')

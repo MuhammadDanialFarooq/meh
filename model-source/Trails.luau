@@ -54,7 +54,13 @@ function Trails:HitList(e, point, time)
                 for owner, sample in pairs(bucket) do
                     if (owner ~= e.id or (self.cfg.SelfTrailKills and time - sample.time > 0.8))
                         and (sample.point - point):Dot(sample.point - point) <= radiusSquared then
-                        result[owner] = true
+                        local delta=sample.point-point
+                        local distance=delta:Dot(delta)
+                        local current=result[owner]
+                        if not current or distance<current.distance
+                            or (distance==current.distance and index<current.index) then
+                            result[owner]={index=index,point=sample.point,distance=distance}
+                        end
                     end
                 end
             end

@@ -1,4 +1,5 @@
 local Grid = require(script.Parent.Grid)
+local TrailMerge = require(script.Parent.TrailMerge)
 local Trails = require(script.Parent.Trails)
 local Movement = require(script.Parent.Movement)
 local BotAI = require(script.Parent.BotAI)
@@ -78,10 +79,14 @@ local function present(callback, ...)
     if not ok then warn("[Paintland V27] Presentation callback: " .. tostring(err)) end
 end
 
-function World:Eliminate(victim, killer, cause, claimContext)
+function World:Eliminate(victim, killer, cause, claimContext, hit)
     -- End-state is immutable: no late trail hit can kill the winner.
     if self.completed then return end
     if not victim or not victim.alive then return end
+    local route
+    if cause=="trail" and killer and killer~=victim and killer.alive then
+        route=TrailMerge.Route(self.grid,killer,victim,hit)
+    end
     victim.alive = false
     victim.killStreak = 0
     victim.lastKillAt = -math.huge
@@ -92,7 +97,12 @@ function World:Eliminate(victim, killer, cause, claimContext)
     local absorbed, absorbedCount = {}, 0
     if not victim.isHuman then
         if killer and killer ~= victim and killer.alive then
-            absorbed, absorbedCount = self.grid:AbsorbDefeatedLand(victim.id, killer.id)
+            local connected
+            absorbed, absorbedCount, connected = self.grid:AbsorbDefeatedLand(victim.id, killer.id, route)
+            if connected then
+                -- These trail cells are solid land now, not exposed collision targets.
+                self.trails:Clear(killer)
+            end
 
             -- NEVER remove the KILLER's territory here. V25's cleanup
             -- could seed from a tiny newly acquired region under the head and
@@ -122,8 +132,8 @@ function World:Eliminate(victim, killer, cause, claimContext)
         if self.events.onMerge then
             present(self.events.onMerge, killer, victim, absorbed)
         end
-        -- A trail kill is not a territory capture; trigger reward particles
-        -- without deleting the winner's own unfinished trail.
+        -- Reward transferred territory and the completed route. The killer's
+        -- trail is cleared only when that entire exposed route became land.
         if not claimContext and self.events.onAbsorb then
             present(self.events.onAbsorb, killer, absorbedCount, absorbed)
         end
