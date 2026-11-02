@@ -219,4 +219,26 @@ Config.MenuDemoBots = 8
 Config.MenuDemoRoundSeconds = 55
 Config.MenuDemoFollowSeconds = 12
 
+-- Background playlist: add audio IDs permitted for this experience.
+-- Example format: {123456789, "rbxassetid://987654321"}; replace with YOUR songs.
+Config.MusicEnabled = true
+Config.MusicTrackIds = {
+    "rbxassetid://1846088038", -- Music1
+    "rbxassetid://1848028342", -- Music2
+    "rbxassetid://9045765295", -- Music3
+    "rbxassetid://9045766377", -- Music4
+    "rbxassetid://1843536434", -- Music5
+    "rbxassetid://140018651136724", -- Music6
+    "rbxassetid://138649427280723", -- Music7
+    "rbxassetid://139980780754211", -- Music8
+}
+Config.MusicTrackVolumes = {0.3, 0.3, 0.3, 0.3, 0.4, 0.3, 0.3, 0.3}
+Config.MusicMutedByDefault = false
+Config.MusicPlayVolume = 0.6
+Config.MusicMenuVolume = 0.18
+Config.MusicMenuHighGain = -25
+Config.MusicMenuMidGain = -10
+Config.MusicFadeSeconds = 0.65
+Config.MusicLoadTimeoutSeconds = 12
+
 return Config

@@ -172,6 +172,19 @@ function UI.new(renderer,cfg,callbacks)
         if callbacks.onSoundToggle then callbacks.onSoundToggle(self.muted) end
         self:UpdateSoundLabel()
     end)
+    self.musicMuted=cfg.MusicMutedByDefault==true
+    self.musicButton=button(screen,"ToggleMusic","MUSIC: ON",PANEL,150)
+    self.musicButton.TextSize=11
+    self.musicButton.AnchorPoint=Vector2.new(1,1)
+    self.musicButton.Size=UDim2.fromOffset(96,44)
+    self.musicButton.Position=UDim2.new(1,-116,1,-12)
+    edge(self.musicButton)
+    self.musicButton.Activated:Connect(function()
+        if cfg.MusicEnabled==false then return end
+        self.musicMuted=not self.musicMuted
+        if callbacks.onMusicToggle then callbacks.onMusicToggle(self.musicMuted) end
+        self:UpdateSoundLabel()
+    end)
     self:UpdateSoundLabel()
     self.resize=renderer.viewport:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:Resize() end)
     self:SetMode("menu")
@@ -180,8 +193,13 @@ function UI.new(renderer,cfg,callbacks)
 end
 function UI:UpdateSoundLabel()
     local disabled=self.cfg.SoundEnabled==false
-    self.soundButton.Text=disabled and "SOUND: DISABLED" or (self.muted and "SOUND: OFF" or "SOUND: ON")
+    self.soundButton.Text=disabled and "SFX: OFF" or (self.muted and "SFX: OFF" or "SFX: ON")
     self.soundButton.TextColor3=(self.muted or disabled) and MUTED or MINT
+    if self.musicButton then
+        local off=self.musicMuted or self.cfg.MusicEnabled==false
+        self.musicButton.Text=off and "MUSIC: OFF" or "MUSIC: ON"
+        self.musicButton.TextColor3=off and MUTED or MINT
+    end
 end
 function UI:Resize()
     local s=self.renderer.viewport.AbsoluteSize
@@ -195,13 +213,19 @@ function UI:Resize()
     self.defeatScale.Scale=math.min(1,(s.X-32)/420,(s.Y-64)/350)
     self.toast.Size=UDim2.fromOffset(math.min(s.X-24,320),30)
     self.soundButton.Position=UDim2.new(1,-12,1,-12)
-    self.soundButton.Size=UDim2.fromOffset(132,44)
+    local width=s.X<450 and 68 or 96
+    self.soundButton.Size=UDim2.fromOffset(width,44)
+    self.musicButton.Size=UDim2.fromOffset(width,44)
+    self.musicButton.Position=UDim2.new(1,-(12+width+(s.X<450 and 4 or 8)),1,-12)
+    self.soundButton.TextSize=s.X<450 and 9 or 11
+    self.musicButton.TextSize=s.X<450 and 9 or 11
 end
 function UI:NewRun()
     self.best=0;self.defeatStats=nil;self.progress:Reset()
 end
 function UI:SetMode(mode)
     self.mode=mode
+    if self.callbacks.onModeChanged then self.callbacks.onModeChanged(mode) end
     self.overlay.Visible=mode=="menu" or mode=="win"
     self.defeatOverlay.Visible=mode=="defeat"
     self.hud.Visible=mode~="menu" and mode~="win" and mode~="defeat"
@@ -212,6 +236,7 @@ function UI:SetMode(mode)
     self.badge.Text=mode=="defeat" and "ROUND COMPLETE" or "PAINT. CAPTURE. REPEAT."
     self.help.Text="Close a loop to claim land.\nCut a rival's trail to take them out."
     self.soundButton.Visible=mode~="revive" and mode~="defeat" -- don't cover the revive action area
+    self.musicButton.Visible=self.soundButton.Visible
     if mode=="menu" then
         self.title.Text="PAINTLAND"
         self.subtitle.Text="A little color. A lot of territory."
@@ -265,6 +290,6 @@ function UI:Destroy()
     self.toastVersion+=1
     if self.resize then self.resize:Disconnect() end
     self.progress:Destroy();self.leaderboard:Destroy();self.minimap:Destroy()
-    self.hud:Destroy();self.overlay:Destroy();self.defeatOverlay:Destroy();self.soundButton:Destroy()
+    self.hud:Destroy();self.overlay:Destroy();self.defeatOverlay:Destroy();self.soundButton:Destroy();self.musicButton:Destroy()
 end
 return UI

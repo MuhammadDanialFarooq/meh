@@ -1,16 +1,53 @@
-# Paintland V37 beta — preserve mainland after territory cuts
+# Paintland V38 beta — continuous music with a muffled menu mix
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v37.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v38.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v37.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v38.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V38 background playlist
+
+The eight songs supplied in `songs.rbxmx` are configured in Music1–Music8 order.
+The source model is retained as `models/songs.rbxmx`; you do not need to insert it
+separately because the game creates its own Sound and music group at runtime.
+The original relative track levels (0.3, except Music5 at 0.4) and group play
+volume (0.6) are retained. Playback starts in the menu and loops the playlist.
+
+While playing, the normal mix uses neutral EQ. The main menu, revive and defeat
+screens use a quieter mix (group volume 0.18), with high frequencies reduced
+by 25 dB and mids by 10 dB. Volume and EQ transition over 0.65 seconds. The same
+song keeps its position across menu/play/replay/death transitions; its pitch is
+not changed. Muting music silences the music group without rewinding the track.
+
+The bottom-right **MUSIC** and **SFX** buttons are independent. Effects retain
+their muted default; music starts enabled. Both controls are hidden during the
+revive/defeat prompt to keep the result layout clean. A song that fails to load
+within 12 seconds is skipped for the session with an Output warning; an
+all-unplayable playlist stops instead of retrying endlessly.
+
+In **PaintlandModules > Config**, edit:
+
+| Setting | Purpose |
+| --- | --- |
+| `MusicTrackIds` | The eight song IDs; add/remove/reorder entries here |
+| `MusicTrackVolumes` | Per-track relative levels, matching playlist order |
+| `MusicPlayVolume`, `MusicMenuVolume` | Normal and quieter group volumes |
+| `MusicMenuHighGain`, `MusicMenuMidGain` | Menu muffling in decibels; 0 removes EQ reduction |
+| `MusicFadeSeconds` | Mix transition length |
+| `MusicEnabled`, `MusicMutedByDefault` | Enable/disable and initial mute state |
+
+Automated tests verify imported IDs/order/relative levels, playlist wrapping,
+mode/mute continuity, EQ targets, failed-track skipping and cleanup. These use
+Sound doubles and do not verify Roblox asset access or audible quality. In
+Studio, allow each audio asset for your experience if required, listen to menu →
+Play → defeat → replay, verify no song restart, and check both mute buttons.
 
 ## V37 preserve the mainland after cuts
 
@@ -282,7 +319,7 @@ Output for sound loading/permission errors. Listen on a phone as well.
 
 ## Validation
 
-All 43 scripts compiled with the official Luau compiler. Headless tests execute the
+All 44 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
 UI tests run the actual constructors/callbacks with minimal UI doubles, checking
 menu/defeat state, death stat snapshots, revive expiry/decline/unavailability,
@@ -293,7 +330,7 @@ voice limits, mute, reset, death and teardown. Gameplay tests cover five capture
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and four modules were added.
+sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and five modules were added.
 
 ```sh
 python3 tools/build_model.py

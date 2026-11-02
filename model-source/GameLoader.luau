@@ -24,6 +24,7 @@ local VictoryController = require(Modules.VictoryController)
 local VictoryWorldFX = require(Modules.VictoryWorldFX)
 
 local AudioController = require(Modules.AudioController)
+local MusicController = require(Modules.MusicController)
 
 local MenuDemo = require(Modules.MenuDemo)
 
@@ -32,6 +33,7 @@ local Loader = {}
 function Loader.Start()
     CoreGuiController.DisablePlayerList()
     local audio = AudioController.new(Config)
+    local music = MusicController.new(Config)
     if RunService:IsStudio() and Config.RunVictoryRegressionTests == true then
         local ok, err = xpcall(function()
             require(Modules.RegressionTests).Run(Config)
@@ -40,6 +42,7 @@ function Loader.Start()
     end
     local localPlayer = Players.LocalPlayer
     local renderer = Renderer.new(Config, localPlayer:WaitForChild("PlayerGui"))
+    renderer.screen.Destroying:Connect(function() music:Destroy() end)
     CosmeticController.Bind(renderer)
     local camera = CameraController.new(Config)
     local particles = CaptureParticles.new(renderer, Config)
@@ -239,6 +242,8 @@ function Loader.Start()
 
     ui = UIController.new(renderer, Config, {
         onSoundToggle = function(muted) audio:SetMuted(muted) end,
+        onMusicToggle = function(muted) music:SetMuted(muted) end,
+        onModeChanged = function(mode) music:SetMode(mode) end,
         onMainMenu = function() startMenu() end,
         onPlay = function(skin)
             local ok, err = xpcall(function()
@@ -278,6 +283,7 @@ function Loader.Start()
     local function updateFrame(dt)
         if not renderer.screen.Parent then return end
         local realDt = dt
+        music:Update(realDt)
         dt = math.min(dt, 0.08)
         if demo.active then
             demo:Update(realDt)
@@ -343,7 +349,7 @@ function Loader.Start()
             end
         end
     end)
-    return {MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
+    return {Music = music, MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
         Particles = particles, Camera = camera, KillFeedback = killFeedback,
         LandMergeEffects = mergeEffects, ArcadeEffects = arcadeEffects, MotionEffects = motionEffects,
         ExpandCombo = expandCombo, TerritoryVFX = territoryVFX, Cosmetics = CosmeticController,

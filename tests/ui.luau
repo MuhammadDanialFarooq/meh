@@ -54,16 +54,22 @@ screen.Parent={}
 local viewport=uiInstance.new("Frame")
 viewport.AbsoluteSize=Vector2.new(1280,720)
 local renderer={screen=screen,viewport=viewport,SetLeader=function() end}
-local playSkin,muted
+local playSkin,muted,musicMuted,musicMode
 local ui=loadModule("UIController").new(renderer,uiCfg,{
-    onPlay=function(skin) playSkin=skin end,onSoundToggle=function(value) muted=value end})
+    onPlay=function(skin) playSkin=skin end,onSoundToggle=function(value) muted=value end,
+    onMusicToggle=function(value) musicMuted=value end,onModeChanged=function(mode) musicMode=mode end})
 assert(ui.overlay.Visible and not ui.hud.Visible,"Menu visibility broken")
 assert(ui.overlay.BackgroundTransparency>=.5,"Menu tint hides the live match")
-assert(ui.soundButton.Text=="SOUND: OFF","UI did not reflect muted default")
+assert(ui.soundButton.Text=="SFX: OFF","UI did not reflect muted default")
 ui.soundButton.Activated:Fire()
-assert(muted==false and ui.soundButton.Text=="SOUND: ON","Unmute button failed")
+assert(muted==false and ui.soundButton.Text=="SFX: ON","Unmute button failed")
 ui.soundButton.Activated:Fire()
 assert(muted==true,"Mute button failed")
+assert(ui.musicButton.Text=="MUSIC: ON" and musicMode=="menu","Default/menu music state wrong")
+ui.musicButton.Activated:Fire()
+assert(musicMuted==true and ui.musicButton.Text=="MUSIC: OFF" and muted==true,"Music toggle disturbed SFX")
+ui.musicButton.Activated:Fire()
+assert(musicMuted==false and ui.musicButton.Text=="MUSIC: ON","Music unmute failed")
 ui.skins[3].button.Activated:Fire();ui.play.Activated:Fire()
 assert(playSkin==3,"Menu failed to pass selected color")
 ui:SetMode("playing")
@@ -85,7 +91,7 @@ local function overlap(a,b)
 end
 for _,size in ipairs({{320,568},{375,667},{390,844},{640,360},{844,390},{900,600},{1280,720},{1920,1080}}) do
     viewport.AbsoluteSize=Vector2.new(size[1],size[2]);ui:Resize()
-    local items={ui.progress.canvas,ui.killCard,ui.leaderboard.panel,ui.minimap.panel,ui.soundButton}
+    local items={ui.progress.canvas,ui.killCard,ui.leaderboard.panel,ui.minimap.panel,ui.soundButton,ui.musicButton}
     local bounds={}
     for _,obj in ipairs(items) do
         local r=rect(obj);table.insert(bounds,r)
