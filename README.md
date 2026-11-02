@@ -1,16 +1,36 @@
-# Paintland V35 beta — live bot match behind the main menu
+# Paintland V36 beta — connected joins through crossed territory
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v35.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v36.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v35.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v36.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V36 crossing joins
+
+Trail joins now claim the recorded bridge even where it passes through another
+owner's territory. The previous version explicitly blocked those cells, leaving
+inherited land detached and vulnerable to later connectivity pruning. Only the
+actual trail/contact route can cross rival land; no unrelated shortcut is carved.
+
+Both sides of the join use this rule: the winner's active trail and the defeated
+trail back to its territory. Third-party heads covered by the bridge, or rivals
+left with no land, are eliminated consistently with normal closed-loop captures.
+Surviving crossed owners retain the connected fragment selected by the existing
+head-position rule. The winner is not pruned as part of its own join.
+
+Regression tests reproduce the V35 failure, verify four-connected joins through
+rival territory on either trail, run later connectivity cleanup to ensure the
+inherited area stays connected, and check covered-head/last-tile eliminations,
+loser fragment cleanup and counts. The full existing gameplay, menu and effect
+tests also pass. Verify the same crossing in Studio; a later genuine enemy cut
+through the bridge can still split territory under the normal game rules.
 
 ## V35 live main-menu backdrop
 
@@ -118,17 +138,16 @@ collision buckets. Grid counters, minimap chunks and land rendering all receive
 the same ownership updates. Small adjacent-cell gaps from collision tolerance are
 bridged locally; no arbitrary map-wide shortcut is searched.
 
-A route crossing a third owner's territory is blocked: that land is not stolen
-to manufacture a join. Victim land still transfers, but the killer keeps their
-unfinished trail and disconnected inheritance may remain. Captured or previously
-split islands can also remain separate. Enclosure kills without a trail-contact
-point retain direct inheritance. The human's land remains reserved while their
-revive choice is pending, as in earlier versions.
+As of V36, a recorded route crossing third-party territory claims those crossing
+cells so the join remains connected. Captured or previously split islands can
+still exist for other reasons. Enclosure kills without a trail-contact point
+retain direct inheritance. The human's land remains reserved while their revive
+choice is pending, as in earlier versions.
 
 Automated tests exercise real collision-to-elimination flow on a bent trail,
 verify 4-connected ownership, exclude the dangling tail, test adjacent-cell
 radius hits, exact counters, renderer/minimap invalidation, cleared trail buckets,
-and blocked third-party crossings. Studio playtesting is still required: cut a
+and connected third-party crossings. Studio playtesting is still required: cut a
 bot midway along an L-shaped path and follow the new colored connection home.
 Abilities are intentionally deferred until the core game loop is settled.
 
@@ -237,7 +256,7 @@ Output for sound loading/permission errors. Listen on a phone as well.
 ## Changes
 
 - Fully enclosed regions are captured even when larger than the exterior. The last interior pocket can complete the arena. When a loop divides the circular wall, the largest boundary-connected component remains exterior; smaller sides are captured. This explicit rule preserves the beta's wall-capture convention.
-- Defeated bots transfer their actual territory; trail kills now join it via the recorded route when unobstructed, including support for inherited islands. No artificial connecting strips are drawn across neutral ground, and third-party land is preserved. Inherited islands may appear as separate colored patches; that reflects ownership.
+- Defeated bots transfer their actual territory; trail kills now join it via the recorded route including crossings through third-party land along the trail. No unrelated connecting strips are drawn across neutral ground; off-route rival land follows normal capture cleanup. Inherited islands may appear as separate colored patches; that reflects ownership.
 - Capture checks repeat after inheritance so another head covered by transferred land is eliminated in the same operation.
 - Elimination presentation callbacks cannot interrupt simulation completion if an effect throws.
 - Minimap rectangles use shared integer pixel edges, eliminating fractional overlaps/gaps. The inaccurate camera rectangle is hidden. A rounded square frame and separate percentage footer improve readability without covering the map.

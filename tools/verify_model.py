@@ -3,7 +3,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 a = ET.parse(ROOT / 'models/PaintlandClient_v26.rbxmx').getroot()
-b = ET.parse(ROOT / 'dist/PaintlandClient_v35.rbxmx').getroot()
+b = ET.parse(ROOT / 'dist/PaintlandClient_v36.rbxmx').getroot()
 changed, added = set(), set()
 for parent in list(b.iter('Item')):
     for item in list(parent.findall('Item')):

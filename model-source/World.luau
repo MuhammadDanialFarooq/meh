@@ -79,6 +79,37 @@ local function present(callback, ...)
     if not ok then warn("[Paintland V27] Presentation callback: " .. tostring(err)) end
 end
 
+-- Used by both closed-loop captures and trail joins. Resolve covered heads and
+-- exhausted owners, then prune only losing owners. Never prune the winner.
+function World:ResolveClaims(actor, claimedCells, affectedOwners)
+    if not actor.alive or self.completed then return end
+    while true do
+        local defeated={}
+        for _,opponent in ipairs(self.entities) do
+            if opponent.alive and opponent.id~=actor.id then
+                local headIndex=self.grid:At(opponent.pos)
+                if (headIndex and claimedCells[headIndex])
+                    or (self.grid.counts[opponent.id] or 0)<=0 then
+                    defeated[#defeated+1]=opponent
+                end
+            end
+        end
+        if #defeated==0 then break end
+        for _,opponent in ipairs(defeated) do
+            self:Eliminate(opponent,actor,"enclosed",claimedCells)
+        end
+    end
+    for ownerId in pairs(affectedOwners or {}) do
+        local opponent=self.entities[ownerId]
+        if ownerId~=actor.id and opponent and opponent.alive then
+            self.grid:RemoveDetachedLand(ownerId,opponent.pos)
+            if (self.grid.counts[ownerId] or 0)<=0 then
+                self:Eliminate(opponent,actor,"enclosed",claimedCells)
+            end
+        end
+    end
+end
+
 function World:Eliminate(victim, killer, cause, claimContext, hit)
     -- End-state is immutable: no late trail hit can kill the winner.
     if self.completed then return end
@@ -95,10 +126,10 @@ function World:Eliminate(victim, killer, cause, claimContext, hit)
     self.trails:Clear(victim)
 
     local absorbed, absorbedCount = {}, 0
+    local connected, affectedOwners
     if not victim.isHuman then
         if killer and killer ~= victim and killer.alive then
-            local connected
-            absorbed, absorbedCount, connected = self.grid:AbsorbDefeatedLand(victim.id, killer.id, route)
+            absorbed, absorbedCount, connected, affectedOwners = self.grid:AbsorbDefeatedLand(victim.id, killer.id, route)
             if connected then
                 -- These trail cells are solid land now, not exposed collision targets.
                 self.trails:Clear(killer)
@@ -140,6 +171,9 @@ function World:Eliminate(victim, killer, cause, claimContext, hit)
     end
     if self.events.onEliminate then
         present(self.events.onEliminate, victim, killer, cause, hit)
+    end
+    if connected and killer and killer.alive then
+        self:ResolveClaims(killer,absorbed,affectedOwners)
     end
     -- A final trail elimination may transfer the last enemy cells.
     if killer and killer.isHuman then

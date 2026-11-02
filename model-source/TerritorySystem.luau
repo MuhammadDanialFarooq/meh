@@ -19,38 +19,8 @@ function TerritorySystem.Capture(world, actor)
     local _, claimedCells, affectedOwners = grid:Capture(actor.id, actor.trailCells)
     world.trails:Clear(actor)
 
-    -- Resolve captured heads before pruning. A head directly covered by the
-    -- new claim dies, even if some of their old land remains elsewhere.
-    -- Absorption may cover another head, so resolve until no new victims remain.
-    -- Each pass eliminates at least one live opponent; this is bounded by bots.
-    while true do
-        local defeated = {}
-        for _, opponent in ipairs(world.entities) do
-            if opponent.alive and opponent.id ~= actor.id then
-                local headIndex = grid:At(opponent.pos)
-                if (headIndex and claimedCells[headIndex])
-                    or (grid.counts[opponent.id] or 0) <= 0 then
-                    defeated[#defeated + 1] = opponent
-                end
-            end
-        end
-        if #defeated == 0 then break end
-        for _, opponent in ipairs(defeated) do
-            world:Eliminate(opponent, actor, "enclosed", claimedCells)
-        end
-    end
-
-    -- Only players who lost territory can acquire new disconnected fragments.
-    -- If they are outside their land, the nearest fragment to their head stays.
-    for ownerId in pairs(affectedOwners) do
-        local opponent = world.entities[ownerId]
-        if opponent and opponent.alive then
-            grid:RemoveDetachedLand(ownerId, opponent.pos)
-            if (grid.counts[ownerId] or 0) <= 0 then
-                world:Eliminate(opponent, actor, "enclosed", claimedCells)
-            end
-        end
-    end
+    -- Trail joins and closed loops follow the same covered-head/split-land rules.
+    world:ResolveClaims(actor, claimedCells, affectedOwners)
 
     -- IMPORTANT: Never prune the CAPTURER's own territory here.
     -- In V23-V25 RemoveDetachedLand(actor.id, actor.pos) could select the tiny

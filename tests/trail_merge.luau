@@ -58,13 +58,53 @@ contact=w.grid:Center(8,5)-Vector2.new(2.5,0)
 a.pos=contact
 assert(w:CollisionCheck(a,contact,0.1) and not b.alive,"Radius hit was lost")
 assert(connected(w,w.grid:Index(2,5),w.grid:Index(8,3),1),"Adjacent hit left a gap")
--- Crossing third-party land must not fabricate a bridge through it.
-w,a,b=setup();land(w,2,5,1);land(w,8,5,2);land(w,5,5,3)
-trail(w,a,{{2,5},{3,5},{4,5}})
-trail(w,b,{{8,5},{7,5},{6,5},{5,5},{4,5},{4,6}})
-contact=w.grid:Center(4,5);a.pos=contact
+-- Crossed rival tiles become the bridge. Off-route rival land follows the
+-- existing split-land rule, retaining the component under that rival's head.
+local function crossing(headOnBridge,lastTile)
+    local w,a,b=setup()
+    local c=w:NewEntity(3,"Crossed rival",cfg.Colors[3],"Farmer")
+    c.alive=true
+    c.pos=w.grid:Center(5,headOnBridge and 5 or 8)
+    land(w,2,5,1);land(w,8,5,2)
+    if lastTile then land(w,5,5,3)
+    else for y=1,12 do land(w,5,y,3) end end
+    trail(w,a,{{2,5},{3,5},{4,5}})
+    trail(w,b,{{8,5},{7,5},{6,5},{5,5},{4,5},{4,6}})
+    local contact=w.grid:Center(4,5);a.pos=contact
+    assert(w:CollisionCheck(a,contact,0.1),"Crossing join killed its winner")
+    return w,a,b,c
+end
+w,a,b,c=crossing(false,false)
+assert(not b.alive and c.alive,"Crossing eliminated a rival whose head was safe")
+assert(w.grid.owners[w.grid:Index(5,5)]==1,"Crossed rival cell did not become the bridge")
+assert(connected(w,w.grid:Index(2,5),w.grid:Index(8,5),1),"Rival crossing left disconnected inheritance")
+assert(not a.drawing and #a.trailCells==0,"Converted crossing trail remained exposed")
+assert(w.grid.owners[w.grid:Index(5,8)]==3 and w.grid.owners[w.grid:Index(5,2)]==0,
+    "Crossed rival's split-land cleanup kept the wrong fragment")
+assert(w.grid.counts[3]==7,"Crossing or pruning corrupted rival count")
+local count=w.grid.counts[1]
+assert(w.grid:RemoveDetachedLand(1,a.pos)==0 and w.grid.counts[1]==count,
+    "Later connectivity cleanup deleted joined land")
+assert(w.grid.owners[w.grid:Index(8,5)]==1,"Inherited land disappeared during cleanup")
+-- A rival head on the bridge must be eliminated, not left alive over taken land.
+w,a,b,c=crossing(true,false)
+assert(not c.alive and a.kills==2 and w.grid.counts[3]==0,"Covered rival head survived crossing")
+-- Losing the last tile also eliminates a rival away from the bridge.
+w,a,b,c=crossing(false,true)
+assert(not c.alive and a.kills==2 and w.grid.counts[3]==0,"Landless rival survived crossing")
+-- Crossings in the killer's trail are converted too, not just the victim's.
+w,a,b=setup()
+land(w,2,5,1);land(w,8,3,2);land(w,3,5,3);land(w,3,6,3)
+c=w:NewEntity(3,"Rival",cfg.Colors[3],"Farmer");c.alive=true;c.pos=w.grid:Center(3,6)
+trail(w,a,{{2,5},{3,5},{4,5},{5,5},{6,5},{7,5}})
+trail(w,b,{{8,3},{8,4},{8,5},{8,6}})
+contact=w.grid:Center(8,5)-Vector2.new(2.5,0);a.pos=contact
 w:CollisionCheck(a,contact,0.1)
-assert(w.grid.owners[w.grid:Index(5,5)]==3,"Merge stole an intervening rival's land")
-assert(w.grid.owners[w.grid:Index(8,5)]==1,"Blocked join lost inherited victim land")
-assert(a.drawing,"Blocked join cleared killer's still-exposed trail")
-print("[Paintland V31 TEST PASS] Bent trail join at cut, tail exclusion, radius contact, exact counts, no ghost trails, rival blocking")
+assert(connected(w,w.grid:Index(2,5),w.grid:Index(8,3),1),"Crossing in killer trail did not join")
+assert(c.alive and w.grid.owners[w.grid:Index(3,6)]==3,"Join took off-route rival land")
+for _,testWorld in ipairs({w}) do
+    local counts={}
+    for _,owner in ipairs(testWorld.grid.owners) do if owner>0 then counts[owner]=(counts[owner] or 0)+1 end end
+    for id,n in pairs(testWorld.grid.counts) do assert(n==(counts[id] or 0),"Post-crossing counts drifted") end
+end
+print("[Paintland V36 TEST PASS] Bent/radius joins, victim and killer rival crossings, durable connectivity, covered heads, landless rivals, loser pruning")

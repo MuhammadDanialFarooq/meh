@@ -325,14 +325,15 @@ end
 -- Defeated land transfers without manufacturing thin neutral corridors.
 -- Disconnected inherited islands are valid ownership, just like preserved land.
 function Grid:AbsorbDefeatedLand(victimId, killerId, route)
-    local taken, claimedCount = {}, 0
+    local taken, claimedCount, affectedOwners = {}, 0, {}
     if victimId == killerId then return taken, 0 end
     if not killerId or killerId <= 0 then
         self:TransferAll(victimId, 0)
         return taken, 0
     end
-    -- Flood from the actual cut, using recorded trails and the two owners' land.
-    -- Never search arbitrary neutral ground or steal intervening rival territory.
+    -- Flood from the actual cut through the recorded trail, including crossed
+    -- rival tiles. Only actual trail cells may cross third-party ownership;
+    -- never search arbitrary neutral or rival land for a shortcut.
     local connected=false
     if route and route.cells and route.cut then
         local seen,queue={},{}
@@ -340,7 +341,7 @@ function Grid:AbsorbDefeatedLand(victimId, killerId, route)
         local function visit(index)
             if not index or seen[index] or not self.mask[index] then return end
             local owner=self.owners[index]
-            if owner==killerId or owner==victimId or (owner==0 and route.cells[index]) then
+            if owner==killerId or owner==victimId or route.cells[index] then
                 seen[index]=true;queue[#queue+1]=index
                 hasKiller=hasKiller or owner==killerId
                 hasVictim=hasVictim or owner==victimId
@@ -362,8 +363,14 @@ function Grid:AbsorbDefeatedLand(victimId, killerId, route)
         end
         if connected then
             for index in pairs(route.cells) do
-                if seen[index] and self.owners[index]==0 and self:Set(index,killerId) then
-                    taken[index]=true;claimedCount+=1
+                if seen[index] then
+                    local old=self.owners[index]
+                    if self:Set(index,killerId) then
+                        taken[index]=true;claimedCount+=1
+                        if old and old>0 and old~=killerId and old~=victimId then
+                            affectedOwners[old]=true
+                        end
+                    end
                 end
             end
         end
@@ -374,7 +381,7 @@ function Grid:AbsorbDefeatedLand(victimId, killerId, route)
             claimedCount += 1
         end
     end
-    return taken, claimedCount, connected
+    return taken, claimedCount, connected, affectedOwners
 end
 
 function Grid:TransferAll(fromId, toId)

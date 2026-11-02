@@ -29,14 +29,14 @@ for path in sorted((ROOT / 'model-source').glob('*.luau')):
         continue
     assert path.stem in {'AudioCues', 'AudioController', 'TrailMerge', 'MenuDemo'}, f'Unexpected new module: {path.stem}'
     module = deepcopy(module_template)
-    module.set('referent', 'RBXPaintlandV35' + path.stem)
+    module.set('referent', 'RBXPaintlandV36' + path.stem)
     props = module.find('Properties')
     props.find("string[@name='Name']").text = path.stem
     props.find("ProtectedString[@name='Source']").text = path.read_text()
     modules_folder.append(module)
     names.add(path.stem)
 assert names == {p.stem for p in (ROOT / 'model-source').glob('*.luau')}
-out = ROOT / 'dist/PaintlandClient_v35.rbxmx'
+out = ROOT / 'dist/PaintlandClient_v36.rbxmx'
 out.parent.mkdir(exist_ok=True)
 tree.write(out, encoding='utf-8', xml_declaration=True)
 print(f'Built {out.name}: {len(names)} scripts')
