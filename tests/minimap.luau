@@ -1,7 +1,7 @@
 local Minimap=loadModule("MinimapController")
 local Grid=loadModule("Grid")
 local cfg=table.clone(loadModule("Config"))
-for _,side in ipairs({108,142}) do
+for _,side in ipairs({96,108,142,144,190}) do
     local g=Grid.new(cfg)
     for i=1,g.total do
         if g.mask[i] then g:Set(i,(i%3)+1) end
@@ -36,7 +36,7 @@ for _,side in ipairs({108,142}) do
         end
     end end
 end
-print("[Paintland V27 TEST PASS] Minimap integer coverage, bounds and no overlap at 108/142px")
+print("[Paintland V27 TEST PASS] Minimap integer coverage, bounds and no overlap at 96/108/142/144/190px")
 -- Coalesce dirty cells, then retain updates that arrive after a partial drain.
 local m=setmetatable({cfg=cfg,chunksWide=4,dirty={},queue={},head=1,elapsed=0,world={},
     RebuildChunk=function(self,id) self.built[id]=(self.built[id] or 0)+1 end,built={}},Minimap)

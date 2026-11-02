@@ -1,6 +1,6 @@
 local Config = {}
 
-Config.Grid = 144 -- V33: larger playable arena (same tile size and movement speed).
+Config.Grid = 112
 Config.Cell = 4
 Config.Chunk = 28
 Config.BotCount = 12
@@ -8,8 +8,8 @@ Config.BotCount = 12
 Config.TouchDeadzone = 18
 Config.MouseDeadzone = 15
 Config.LeaderboardRows = 4
-Config.MinimapPhoneSize = 108
-Config.MinimapDesktopSize = 142
+Config.MinimapPhoneSize = 144
+Config.MinimapDesktopSize = 190
 Config.MinimapUpdateRate = 0.12
 
 
@@ -104,7 +104,7 @@ Config.ArenaTileStuds = 16
 Config.ArenaGridThickness = 0.10
 Config.ArenaGridColor = Color3.fromRGB(219, 222, 228)
 Config.CameraTiltDegrees = 21
-Config.MobileWorldViewHeight = 124
+Config.MobileWorldViewHeight = 144
 Config.MouseWorldDeadzone = 2.5
 Config.Colors = {
     Color3.fromRGB(23, 196, 158),
@@ -145,7 +145,7 @@ Config.Use3DTerritoryBackup = true -- single 3D land layer only
 Config.WorkspaceBorderWidth = 6
 Config.WorkspaceBorderInnerWidth = 2
 Config.WorkspaceCameraFOV = 48
-Config.WorldViewHeightStuds = 112
+Config.WorldViewHeightStuds = 124
 Config.CharacterHeight = 3.7
 Config.DisableMobileCameraKick = true
 Config.CameraSpringFrequency = 14

@@ -1,16 +1,28 @@
-# Paintland V33 beta — transparent death screen and larger arena
+# Paintland V34 beta — larger minimap and reference death screen
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v33.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v34.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v33.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v34.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V34 clarified map size
+
+The requested size increase applies to the **minimap**. It is now 190 pixels wide
+on desktop and 144 on phones (previously 142 and 108); short landscape displays
+use 96 instead of 76 to keep it clear of the rest of the HUD. Change
+`MinimapDesktopSize` and `MinimapPhoneSize` in Config to tune it.
+
+The V33 arena/camera changes have been reverted: `Grid=112`,
+`WorldViewHeightStuds=124`, `MobileWorldViewHeight=144`. The reference-style death
+screen, image icons and Play Again/Main Menu actions remain. The renderer's
+phone-aware effect scaling correction is retained.
 
 ## V33 death screen and arena scale
 

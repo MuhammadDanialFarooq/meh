@@ -90,8 +90,8 @@ end
 
 function Minimap:Resize(viewportSize)
     local small=UserInputService.TouchEnabled or viewportSize.X<750
-    self.side=small and (self.cfg.MinimapPhoneSize or 108) or (self.cfg.MinimapDesktopSize or 142)
-    if viewportSize.Y<500 then self.side=76 end
+    self.side=small and (self.cfg.MinimapPhoneSize or 144) or (self.cfg.MinimapDesktopSize or 190)
+    if viewportSize.Y<500 then self.side=96 end
     local margin=small and 9 or 15
     self.panel.Position=UDim2.new(0,margin,1,-margin)
     self.panel.Size=UDim2.fromOffset(self.side+8,self.side+26)
