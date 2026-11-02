@@ -1,7 +1,7 @@
 local TerritorySystem = {}
 
 -- Captures first overwrite land inside the closed loop. This may split an
--- enemy's territory. Keep only the fragment containing the enemy's head;
+-- enemy's territory. Keep the largest remaining connected landmass;
 -- the disconnected fragments are returned to neutral ground.
 function TerritorySystem.Capture(world, actor)
     if not actor.alive then return end

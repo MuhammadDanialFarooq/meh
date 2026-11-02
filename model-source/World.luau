@@ -80,7 +80,7 @@ local function present(callback, ...)
 end
 
 -- Used by both closed-loop captures and trail joins. Resolve covered heads and
--- exhausted owners, then prune only losing owners. Never prune the winner.
+-- exhausted owners, then keep losing owners' largest landmass. Never prune the winner.
 function World:ResolveClaims(actor, claimedCells, affectedOwners)
     if not actor.alive or self.completed then return end
     while true do

@@ -114,70 +114,54 @@ function Grid:Recount()
     end
 end
 
--- An owner must have exactly one connected landmass. If an enemy cuts
--- through their land, keep the 4-connected component below their head.
--- If their head is currently OUTSIDE their territory, keep the closest
--- component instead (the one they can realistically return to).
--- Removed pieces become unclaimed, NOT killer-owned islands.
--- All edits use Set() so counts, minimap and renderer stay in sync.
+-- Retain the largest owned component after a genuine split. A head near a
+-- tiny sliver must never erase the main territory. Head position only breaks
+-- equal-size ties. Any alternate OWNED bridge is naturally part of the flood.
 function Grid:RemoveDetachedLand(id, headPosition)
-    if (self.counts[id] or 0) <= 0 then return 0 end
-    if not headPosition then return 0 end
-
-    local sx, sy = self:Coords(headPosition)
-    local seed = self:Index(sx, sy)
-    if not seed or self.owners[seed] ~= id then
-        -- When the head is drawing an exposed trail, it may be outside
-        -- its own territory. Select the closest OWNED cell to its head.
-        local bestDistance = math.huge
-        seed = nil
-        for index = 1, self.total do
-            if self.owners[index] == id then
-                local x = (index - 1) % self.size + 1
-                local y = math.floor((index - 1) / self.size) + 1
-                local dx, dy = x - sx, y - sy
-                local distance = dx * dx + dy * dy
-                if distance < bestDistance then
-                    bestDistance = distance
-                    seed = index
+    if (self.counts[id] or 0)<=0 then return 0 end
+    local headIndex=headPosition and self:At(headPosition)
+    local hx=headPosition and ((headPosition.X+self.half)/self.cell+.5)
+    local hy=headPosition and ((headPosition.Y+self.half)/self.cell+.5)
+    local seen=table.create(self.total,false)
+    local best,bestHasHead,bestDistance=nil,false,math.huge
+    local width=self.size
+    for seed=1,self.total do
+        if self.owners[seed]==id and not seen[seed] then
+            local queue={seed}
+            seen[seed]=true
+            local front,hasHead,nearest=1,false,math.huge
+            local function visit(index)
+                if not seen[index] and self.owners[index]==id then
+                    seen[index]=true;queue[#queue+1]=index
                 end
+            end
+            while front<=#queue do
+                local index=queue[front];front+=1
+                hasHead=hasHead or index==headIndex
+                local x,y=(index-1)%width+1,math.floor((index-1)/width)+1
+                if headPosition then
+                    local dx,dy=x-hx,y-hy
+                    nearest=math.min(nearest,dx*dx+dy*dy)
+                end
+                if x>1 then visit(index-1) end
+                if x<width then visit(index+1) end
+                if y>1 then visit(index-width) end
+                if y<width then visit(index+width) end
+            end
+            if #queue>=(self.counts[id] or 0) then return 0 end
+            if not best or #queue>#best or (#queue==#best and
+                ((hasHead and not bestHasHead) or (hasHead==bestHasHead and nearest<bestDistance))) then
+                best,bestHasHead,bestDistance=queue,hasHead,nearest
             end
         end
     end
-    if not seed then return 0 end
-
-    local seen = table.create(self.total, false)
-    local queue = {seed}
-    seen[seed] = true
-    local head, tail = 1, 1
-    local width = self.size
-
-    local function include(other)
-        if self.owners[other] ~= id or seen[other] then return end
-        tail += 1
-        queue[tail] = other
-        seen[other] = true
-    end
-
-    while head <= tail do
-        local index = queue[head]
-        head += 1
-        local x = (index - 1) % width + 1
-        local y = math.floor((index - 1) / width) + 1
-        if x > 1 then include(index - 1) end
-        if x < width then include(index + 1) end
-        if y > 1 then include(index - width) end
-        if y < width then include(index + width) end
-    end
-
-    -- Fast exit if all cells of this owner are part of the retained landmass.
-    if tail >= (self.counts[id] or 0) then return 0 end
-
-    local removed = 0
-    for index = 1, self.total do
-        if self.owners[index] == id and not seen[index] then
-            self:Set(index, 0)
-            removed += 1
+    if not best or #best>=(self.counts[id] or 0) then return 0 end
+    local keep={}
+    for _,index in ipairs(best) do keep[index]=true end
+    local removed=0
+    for index=1,self.total do
+        if self.owners[index]==id and not keep[index] then
+            self:Set(index,0);removed+=1
         end
     end
     return removed

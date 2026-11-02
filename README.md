@@ -1,16 +1,35 @@
-# Paintland V36 beta — connected joins through crossed territory
+# Paintland V37 beta — preserve mainland after territory cuts
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v36.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v37.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v36.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v37.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V37 preserve the mainland after cuts
+
+Connectivity cleanup no longer chooses the territory closest to the head. That
+rule could retain a tiny sliver and erase the much larger mainland after a cut.
+Cleanup now keeps the **largest four-connected owned component**. Head position
+only breaks equal-size ties. A second owned bridge keeps both sides in the same
+component, so neither side is removed just because the first bridge was cut.
+
+Only genuinely disconnected smaller pieces become neutral. Actual enemy-captured
+cells are not restored, and a path painted by another owner is not treated as
+your connection. This rule applies through the shared capture/join loser cleanup;
+the winner is still never pruned during its own capture or join.
+
+The new tests reproduce the V36 loss, check a head on a tiny fragment and a head
+outside land, verify a second owned bridge, check equal-size ties and run the
+actual World loser-cleanup path. Existing crossing joins, captures, victory,
+revive/defeat UI, menu demo and effect checks pass. Verify the reported cut in
+Studio; the tests establish ownership behavior, not engine rendering.
 
 ## V36 crossing joins
 
@@ -22,8 +41,7 @@ actual trail/contact route can cross rival land; no unrelated shortcut is carved
 Both sides of the join use this rule: the winner's active trail and the defeated
 trail back to its territory. Third-party heads covered by the bridge, or rivals
 left with no land, are eliminated consistently with normal closed-loop captures.
-Surviving crossed owners retain the connected fragment selected by the existing
-head-position rule. The winner is not pruned as part of its own join.
+Surviving crossed owners retain their largest connected fragment (the V37 rule). The winner is not pruned as part of its own join.
 
 Regression tests reproduce the V35 failure, verify four-connected joins through
 rival territory on either trail, run later connectivity cleanup to ensure the
