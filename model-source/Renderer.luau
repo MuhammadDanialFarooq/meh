@@ -172,6 +172,9 @@ end
 
 function Renderer:SetLeader(id) self.leaderId = id end
 function Renderer:ClearTrail(id) self.trailRenderer:Clear(id) end
+function Renderer:PulseEntity(id,amount)
+    self.characters:Pulse(id,amount)
+end
 function Renderer:RemoveEntityVisual(id)
     self.characters:Remove(id)
     self.trailRenderer:Clear(id)

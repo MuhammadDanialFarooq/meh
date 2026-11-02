@@ -28,7 +28,8 @@ game.GetService=function(_,name) return services[name] or {} end
 local deferred={}
 local taskDouble={defer=function(f) f() end,delay=function(_,f) table.insert(deferred,f) end,spawn=function() end}
 local uiInstance={new=function(class)
-    local obj={ClassName=class,children={},Activated=signal(),Visible=true,
+    local obj={ClassName=class,children={},Activated=signal(),MouseEnter=signal(),MouseLeave=signal(),
+        SelectionGained=signal(),SelectionLost=signal(),MouseButton1Down=signal(),MouseButton1Up=signal(),Visible=true,
         AnchorPoint=Vector2.zero,Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(0,0)}
     function obj:FindFirstChild(name) for _,child in ipairs(self.children) do if child.Name==name then return child end end end
     function obj:GetPropertyChangedSignal() return signal() end
@@ -54,10 +55,14 @@ screen.Parent={}
 local viewport=uiInstance.new("Frame")
 viewport.AbsoluteSize=Vector2.new(1280,720)
 local renderer={screen=screen,viewport=viewport,SetLeader=function() end}
-local playSkin,muted,musicMuted,musicMode
+local playSkin,muted,musicMuted,musicMode,cosmeticChoice
+local previewUpdates=0
+local previewDouble={Set=function() previewUpdates+=1 end,Update=function() end,Destroy=function() end}
 local ui=loadModule("UIController").new(renderer,uiCfg,{
     onPlay=function(skin) playSkin=skin end,onSoundToggle=function(value) muted=value end,
-    onMusicToggle=function(value) musicMuted=value end,onModeChanged=function(mode) musicMode=mode end})
+    onMusicToggle=function(value) musicMuted=value end,onModeChanged=function(mode) musicMode=mode end,
+    onCosmeticChanged=function(choice) cosmeticChoice=choice end,
+    createCosmeticPreview=function() return previewDouble end})
 assert(ui.overlay.Visible and not ui.hud.Visible,"Menu visibility broken")
 assert(ui.overlay.BackgroundTransparency>=.5,"Menu tint hides the live match")
 assert(ui.soundButton.Text=="SFX: OFF","UI did not reflect muted default")
@@ -102,8 +107,15 @@ for _,size in ipairs({{320,568},{375,667},{390,844},{640,360},{844,390},{900,600
         assert(not overlap(bounds[i],bounds[j]),items[i].Name .. " overlaps " .. items[j].Name)
     end end
     local scale=ui.menuScale.Scale
-    assert(scale>0 and 420*scale<=size[1]-32+1e-6 and 460*scale<=size[2]-110+1e-6,"Menu does not fit")
+    assert(scale>0 and 420*scale<=size[1]-32+1e-6 and 480*scale<=size[2]-110+1e-6,"Menu does not fit")
 end
+ui:SetMode("menu");ui.styleButton.Activated:Fire()
+assert(ui.mode=="cosmetics" and ui.cosmeticOverlay.Visible and not ui.hud.Visible and not ui.musicButton.Visible,
+    "Wardrobe mode is not exclusive")
+ui.hatButton.Activated:Fire();ui.faceButton.Activated:Fire();ui:Animate(.016)
+assert(cosmeticChoice.Hat=="Cap" and cosmeticChoice.FaceStyle=="Wink" and previewUpdates>1,
+    "Cosmetic selection did not reach preview/callback")
+ui.styleDone.Activated:Fire();assert(ui.mode=="menu" and not ui.cosmeticOverlay.Visible,"Wardrobe did not return to menu")
 ui:SetMode("revive");assert(not ui.soundButton.Visible,"Sound button covers revive")
 ui:SetMode("playing");assert(ui.soundButton.Visible,"Sound button not restored")
 -- Results retain the death snapshot even if later HUD updates inspect the world.

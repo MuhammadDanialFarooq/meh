@@ -21,7 +21,10 @@ function Demo:Start()
     self.age,self.followAge=0,0
     local cfg=table.clone(self.cfg)
     self.world=World.new(cfg,function(index) self.renderer:MarkCell(index) end,{
-        onSpawn=function(e) self.renderer:ResetEntityVisual(e.id) end,
+        onSpawn=function(e)
+            self.renderer:ResetEntityVisual(e.id)
+            if self.events.onSpawn then self.events.onSpawn(e) end
+        end,
         onCapture=function(e,count,cells)
             self.renderer:ClearTrail(e.id)
             if self.events.onCapture then self.events.onCapture(e,count,cells,self.world) end

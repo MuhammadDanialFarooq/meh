@@ -27,6 +27,9 @@ local AudioController = require(Modules.AudioController)
 local MusicController = require(Modules.MusicController)
 
 local MenuDemo = require(Modules.MenuDemo)
+local LightingController = require(Modules.LightingController)
+local CosmeticPreview = require(Modules.CosmeticPreview)
+local Catalog = require(Modules.CosmeticCatalog)
 
 local Loader = {}
 
@@ -42,7 +45,8 @@ function Loader.Start()
     end
     local localPlayer = Players.LocalPlayer
     local renderer = Renderer.new(Config, localPlayer:WaitForChild("PlayerGui"))
-    renderer.screen.Destroying:Connect(function() music:Destroy() end)
+    local lighting=LightingController.new(Config)
+    renderer.screen.Destroying:Connect(function() music:Destroy();lighting:Destroy() end)
     CosmeticController.Bind(renderer)
     local camera = CameraController.new(Config)
     local particles = CaptureParticles.new(renderer, Config)
@@ -60,6 +64,8 @@ function Loader.Start()
     local hudTimer = 0
     local ui, revive, victory
     local victoryFX = VictoryWorldFX.new(renderer, Config)
+    local selectedCosmetics=table.clone(Config.PlayerCosmetics)
+    local cosmeticRng=Random.new()
     local newMatch, startMenu
     local function clearPresentation()
         victoryFX:Clear();particles:Clear();mergeEffects:Clear();audio:Reset()
@@ -67,6 +73,9 @@ function Loader.Start()
         expandCombo:Reset();territoryVFX:Clear()
     end
     local demo=MenuDemo.new(Config,renderer,{
+        onSpawn=function(e)
+            renderer:SetCosmetics(e.id,Config.RandomBotCosmetics and Catalog.Random(Config,cosmeticRng,e.color) or Config.BotCosmetics)
+        end,
         onReset=clearPresentation,
         onCapture=function(e,count,cells,demoWorld)
             if count>0 then
@@ -106,6 +115,8 @@ function Loader.Start()
         end, {
             onSpawn = function(entity)
                 renderer:ResetEntityVisual(entity.id)
+                if entity.isHuman then renderer:SetCosmetics(entity.id,selectedCosmetics)
+                else renderer:SetCosmetics(entity.id,Config.RandomBotCosmetics and Catalog.Random(Config,cosmeticRng,entity.color) or Config.BotCosmetics) end
                 if entity.isHuman then
                     audio:Spawn()
                     camera:Reset(entity.pos)
@@ -119,6 +130,7 @@ function Loader.Start()
                 if entity.isHuman then audio:Capture(count, world.grid.playableTotal) end
                 renderer:ClearTrail(entity.id)
                 if count > 0 then
+                    renderer:PulseEntity(entity.id,.65)
                     territoryVFX:Play(entity, count, changedCells, world.grid)
                     particles:Emit(entity, world.grid, changedCells, camera.position)
                     arcadeEffects:Capture(entity, count)
@@ -188,6 +200,7 @@ function Loader.Start()
                 renderer:RemoveEntityVisual(victim.id)
                 if killer and killer.isHuman and killer ~= victim and killer.alive then
                     killFeedback:OnKill(victim, killer)
+                    renderer:PulseEntity(killer.id,.9)
                     camera:KillPulse(killer.heading, killer.killStreak)
                 end
                 if victim.isHuman then
@@ -243,7 +256,9 @@ function Loader.Start()
     ui = UIController.new(renderer, Config, {
         onSoundToggle = function(muted) audio:SetMuted(muted) end,
         onMusicToggle = function(muted) music:SetMuted(muted) end,
-        onModeChanged = function(mode) music:SetMode(mode) end,
+        onModeChanged = function(mode) music:SetMode(mode);lighting:SetMode(mode) end,
+        createCosmeticPreview=function(viewport) return CosmeticPreview.new(viewport,Config) end,
+        onCosmeticChanged=function(choice) selectedCosmetics=choice end,
         onMainMenu = function() startMenu() end,
         onPlay = function(skin)
             local ok, err = xpcall(function()
@@ -277,6 +292,12 @@ function Loader.Start()
         end,
     })
 
+    for _,b in ipairs({revive.adButton,revive.buyButton,revive.creditButton,revive.studioButton,revive.endButton}) do
+        ui.animations:Bind(b)
+    end
+    for _,obj in ipairs(victory.card:GetDescendants()) do
+        if obj:IsA("GuiButton") then ui.animations:Bind(obj) end
+    end
     startMenu()
 
     local lastFrameError = nil
@@ -284,6 +305,7 @@ function Loader.Start()
         if not renderer.screen.Parent then return end
         local realDt = dt
         music:Update(realDt)
+        ui:Animate(realDt)
         dt = math.min(dt, 0.08)
         if demo.active then
             demo:Update(realDt)
@@ -349,7 +371,7 @@ function Loader.Start()
             end
         end
     end)
-    return {Music = music, MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
+    return {Lighting = lighting, Music = music, MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
         Particles = particles, Camera = camera, KillFeedback = killFeedback,
         LandMergeEffects = mergeEffects, ArcadeEffects = arcadeEffects, MotionEffects = motionEffects,
         ExpandCombo = expandCombo, TerritoryVFX = territoryVFX, Cosmetics = CosmeticController,

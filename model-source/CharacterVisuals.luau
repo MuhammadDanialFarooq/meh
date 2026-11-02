@@ -1,5 +1,6 @@
 -- V21: procedural toy character. All geometry is generated locally in Workspace.
 -- No external character models, MeshIds, uploaded hats, or invisible face plates.
+local FaceBuilder = require(script.Parent.FaceBuilder)
 local CharacterVisuals = {}
 CharacterVisuals.__index = CharacterVisuals
 
@@ -89,6 +90,22 @@ local function addHat(model, kind, color)
         shape("Brim",Vector3.new(4.6,.18,4.2),CFrame.new(0,3.20,0),ink,Enum.PartType.Ball)
         shape("Top",Vector3.new(3.1,2.12,3.0),CFrame.new(0,4.18,0),ink,Enum.PartType.Block)
         shape("Ribbon",Vector3.new(3.22,.30,3.1),CFrame.new(0,3.52,0),Color3.fromRGB(255,200,71))
+    elseif kind == "Halo" then
+        for i=1,12 do
+            local angle=i/12*math.pi*2
+            local p=shape("Halo"..i,Vector3.new(.65,.22,.65),
+                CFrame.new(math.cos(angle)*1.75,4.05,math.sin(angle)*1.75),
+                Color3.fromRGB(255,229,117),Enum.PartType.Ball)
+            p.Material=Enum.Material.Neon
+        end
+    elseif kind == "Wizard" then
+        local purple=Color3.fromRGB(119,85,232)
+        shape("WizardBrim",Vector3.new(4.8,.25,4.6),CFrame.new(0,3.1,0),purple,Enum.PartType.Ball)
+        for i=1,5 do
+            local width=3.4-i*.48
+            shape("WizardCone"..i,Vector3.new(width,.6,width),CFrame.new(i*.1,3.2+i*.45,0),purple,Enum.PartType.Ball)
+        end
+        shape("WizardStar",Vector3.new(.55,.55,.18),CFrame.new(0,3.75,-1.15),Color3.fromRGB(255,217,82),Enum.PartType.Ball)
     end
     return created
 end
@@ -121,25 +138,8 @@ function CharacterVisuals:Create(entity)
         CFrame.new(-1.38,1.45,-2.27)*CFrame.Angles(0,0,math.rad(-18)),
         Color3.fromRGB(255,255,255),Enum.PartType.Ball)
     shine.Transparency=.38
-    -- Large expressive eyeballs, facing -Z in the model's local coordinates.
     local face=Instance.new("Folder")
-    face.Name="ProceduralFace"
-    face.Parent=model
-    for _,x in ipairs({-.91,.91}) do
-        make(face,"EyeWhite",Vector3.new(1.28,1.41,.60),CFrame.new(x,.55,-2.48),
-            Color3.fromRGB(255,252,250),Enum.PartType.Ball)
-        make(face,"Pupil",Vector3.new(.53,.76,.29),CFrame.new(x+.07,.5,-2.82),
-            Color3.fromRGB(32,40,62),Enum.PartType.Ball)
-        make(face,"EyeShine",Vector3.new(.19,.22,.09),CFrame.new(x-.10,.76,-2.995),
-            Color3.fromRGB(255,255,255),Enum.PartType.Ball)
-    end
-    local mouth=make(face,"Smile",Vector3.new(.72,.27,.18),CFrame.new(0,-.74,-2.48),
-        Color3.fromRGB(42,43,65),Enum.PartType.Ball)
-    for _,x in ipairs({-1.65,1.65}) do
-        local blush=make(face,"Blush",Vector3.new(.48,.23,.17),CFrame.new(x,-.28,-2.11),
-            Color3.fromRGB(255,138,149),Enum.PartType.Ball)
-        blush.Transparency=.27
-    end
+    face.Name="ProceduralFace";face.Parent=model
     -- Decal on the body, not a visible part in front of the camera.
     local faceDecal=Instance.new("Decal")
     faceDecal.Name="CustomFace"
@@ -165,6 +165,8 @@ function CharacterVisuals:SetCosmetics(id,cosmetics)
     r.hatParts={}
     r.hatParts=addHat(r.model,cosmetics.Hat or "None",
         cosmetics.HatColor or Color3.fromRGB(59,138,242))
+    if r.face then r.face:Destroy() end
+    r.face=FaceBuilder.Build(r.model,cosmetics.FaceStyle or "Classic")
     local image=assetUri(cosmetics.FaceImageId)
     r.faceDecal.Texture=image or ""
     r.faceDecal.Transparency=image and 0 or 1
@@ -193,6 +195,10 @@ function CharacterVisuals:SetCosmetics(id,cosmetics)
     r.cosmetics=cosmetics
 end
 
+function CharacterVisuals:Pulse(id,amount)
+    local r=self.objects[id]
+    if r and not self.cfg.ReducedMotion then r.pulse=math.clamp(amount or .6,0,1);r.pulseAt=os.clock() end
+end
 function CharacterVisuals:Update(entity,isLeader)
     if not entity.alive then self:Remove(entity.id); return end
     local r=self.objects[entity.id] or self:Create(entity)
@@ -201,10 +207,12 @@ function CharacterVisuals:Update(entity,isLeader)
     r.body.Color=entity.color
     -- All movement is one Model:PivotTo, avoiding independently sliding parts.
     local t=os.clock()
-    local bob=math.sin(t*7.3+entity.id)*.085
+    local bob=self.cfg.ReducedMotion and 0 or math.sin(t*7.3+entity.id)*.085
+    local age=t-(r.pulseAt or -100)
+    local hop=self.cfg.ReducedMotion and 0 or (r.pulse or 0)*math.exp(-8*age)*math.sin(16*age)
     local yaw=-entity.heading-math.pi/2
-    local lean=math.sin(t*4.2+entity.id)*.025
-    r.model:PivotTo(CFrame.new(entity.pos.X,(self.cfg.CharacterHeight or 3.7)+bob,entity.pos.Y)
+    local lean=self.cfg.ReducedMotion and 0 or math.sin(t*4.2+entity.id)*.025
+    r.model:PivotTo(CFrame.new(entity.pos.X,(self.cfg.CharacterHeight or 3.7)+bob+hop,entity.pos.Y)
         * CFrame.Angles(0,yaw,lean))
 end
 

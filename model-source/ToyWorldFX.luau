@@ -41,7 +41,7 @@ function FX:_emit(pos,color,count,size)
         local radius=self.rng:NextNumber(.25,.7)
         p.Size=Vector3.new(radius,radius,radius)
         p.Transparency=0
-        self.active[#self.active+1]={part=p,life=.58,age=0,at=origin,
+        self.active[#self.active+1]={part=p,baseSize=p.Size,life=self.rng:NextNumber(.5,.8),age=0,at=origin,
             velocity=Vector3.new(math.cos(a)*speed,self.rng:NextNumber(4,11),math.sin(a)*speed)}
     end
 end
@@ -67,9 +67,9 @@ function FX:Update(dt)
         else
             local v=o.velocity
             o.part.Position=o.at+v*o.age+Vector3.new(0,-20*o.age*o.age,0)
-            o.part.Transparency=t*t
-            local scale=math.max(.1,1-t)
-            o.part.Size=Vector3.new(.5,.5,.5)*scale
+            o.part.Transparency=t*t*t
+            local scale=math.max(.05,1-t*t)
+            o.part.Size=o.baseSize*scale
         end
     end
 end

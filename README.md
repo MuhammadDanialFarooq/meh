@@ -1,16 +1,52 @@
-# Paintland V38 beta — continuous music with a muffled menu mix
+# Paintland V39 beta — reference-inspired polish and cosmetics
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v38.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v39.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v38.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v39.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V39 style, motion and cosmetics
+
+The supplied **Kaboom Kablow** place was decoded and its saved lighting and UI
+source inspected. See `docs/reference-style.md` for concrete findings and how
+they were adapted. Its scripts were not executed or copied into this game.
+
+- Bright afternoon lighting, soft purple/pink light accents, saturated color correction and animated menu blur. Blur clears in gameplay and on the death screen so trails and the frozen death backdrop stay readable. `LightingController` restores previous base settings on teardown.
+- Damped-spring hover/press/release feedback on menu, wardrobe, audio, revive, victory and death buttons, plus spring panel entrances. Updates use the existing render loop, not a separate connection for every frame/button.
+- Capture/kill character bounces and smoother, size-preserving confetti shrink/fade. The existing capture flashes, kill bursts and trail joins remain.
+- **HATS & FACES** on the main menu opens a wardrobe with a live 3D preview. Cycle hats/faces and select **LOOKING GOOD** to return. Choices carry into play, death/revive and replay in the current session.
+- Hats: None, Cap, Crown, Top Hat, Halo and Wizard. Faces: Happy, Wink, Fierce and Shades. All default geometry is generated in code, so no external hat/face asset is required. Bots get randomized choices too.
+
+Settings in `PaintlandModules > Config`:
+
+| Setting | Purpose |
+| --- | --- |
+| `StylizedLighting` | Enable the new local lighting style |
+| `LightingContrast`, `LightingSaturation`, `MenuBlurSize` | Tune the grade and menu blur |
+| `ReducedMotion` | Disable button/character bounce and moving preview rotation |
+| `RandomBotCosmetics` | Give bots varied hats/faces |
+| `CosmeticHats` | Optional list of supported procedural hat names |
+| `CosmeticFaces` | Optional `{Name, Style, ImageId}` face presets; ImageId overrides the procedural face |
+
+These are free session choices, not a paid shop or persistent unlock system.
+Existing `PlayerCosmetics` defaults and the cosmetic API remain available. Custom
+face images still need permission for the experience. The new defaults require
+no uploads and the eight-song playlist remains configured.
+
+Headless tests exercise wardrobe selection/callbacks, spring settling, reduced
+motion, lighting restoration, all 24 default hat/face combinations, custom face
+images, preview setup and gameplay pulses. Those use Roblox value/instance
+doubles, so Studio checks remain essential: inspect face/hat positioning, hover
+and press feedback, menu blur, live preview, selected appearance after revive,
+lighting contrast on trails and mobile performance. The reference-inspired look
+is not claimed to be an exact visual replica.
 
 ## V38 background playlist
 
@@ -319,7 +355,7 @@ Output for sound loading/permission errors. Listen on a phone as well.
 
 ## Validation
 
-All 44 scripts compiled with the official Luau compiler. Headless tests execute the
+All 49 scripts compiled with the official Luau compiler. Headless tests execute the
 actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
 UI tests run the actual constructors/callbacks with minimal UI doubles, checking
 menu/defeat state, death stat snapshots, revive expiry/decline/unavailability,
@@ -330,7 +366,7 @@ voice limits, mute, reset, death and teardown. Gameplay tests cover five capture
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and five modules were added.
+sources, preserves the original hierarchy/properties, and confirms twenty-two original scripts changed and ten modules were added.
 
 ```sh
 python3 tools/build_model.py

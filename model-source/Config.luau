@@ -241,4 +241,13 @@ Config.MusicMenuMidGain = -10
 Config.MusicFadeSeconds = 0.65
 Config.MusicLoadTimeoutSeconds = 12
 
+-- Reference-inspired lighting and smooth UI. No external sky/face assets required.
+Config.StylizedLighting = true
+Config.LightingContrast = 0.3
+Config.LightingSaturation = 0.35
+Config.MenuBlurSize = 4
+Config.RandomBotCosmetics = true
+-- Optional overrides: CosmeticHats = {"None","Cap",...}; CosmeticFaces =
+-- {{Name="Custom",Style="Classic",ImageId=YOUR_FACE_IMAGE_ID}, ...}.
+
 return Config

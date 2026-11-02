@@ -5,6 +5,8 @@ local MinimapController=require(script.Parent.MinimapController)
 local LeaderboardService=require(script.Parent.LeaderboardService)
 local HUDCanvas=require(script.Parent.HUDCanvas)
 local LeaderboardController=require(script.Parent.LeaderboardController)
+local UIAnimator=require(script.Parent.UIAnimator)
+local Catalog=require(script.Parent.CosmeticCatalog)
 local UI={}
 UI.__index=UI
 local INK=Color3.fromRGB(17,27,43)
@@ -44,6 +46,11 @@ end
 function UI.new(renderer,cfg,callbacks)
     local self=setmetatable({renderer=renderer,cfg=cfg,callbacks=callbacks,
         mode="menu",skin=1,best=0,toastVersion=0,muted=cfg.SoundMutedByDefault==true},UI)
+    self.animations=UIAnimator.new(cfg)
+    self.hatIndex,self.faceIndex=1,1
+    self.hats,self.faces=Catalog.Get(cfg)
+    for i,hat in ipairs(self.hats) do if hat==(cfg.PlayerCosmetics or {}).Hat then self.hatIndex=i end end
+    for i,face in ipairs(self.faces) do if face.Style==(cfg.PlayerCosmetics or {}).FaceStyle then self.faceIndex=i end end
     local screen=renderer.screen
     self.hud=make(screen,"Frame","HUD",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ZIndex=20})
     self.progress=HUDCanvas.new(self.hud,cfg)
@@ -72,7 +79,7 @@ function UI.new(renderer,cfg,callbacks)
     make(self.overlay,"UIGradient","Atmosphere",{Rotation=35,
         Color=ColorSequence.new(Color3.fromRGB(20,47,61),Color3.fromRGB(25,24,52))})
     self.card=make(self.overlay,"Frame","MenuCard",{AnchorPoint=Vector2.new(.5,.5),
-        Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(420,460),
+        Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(420,480),
         BackgroundColor3=PANEL,BorderSizePixel=0,ZIndex=41})
     round(self.card,28);edge(self.card,EDGE)
     self.menuScale=make(self.card,"UIScale","AdaptiveScale",{Scale=1})
@@ -98,6 +105,7 @@ function UI.new(renderer,cfg,callbacks)
         self.skins[i]={button=swatch,stroke=outline}
         swatch.Activated:Connect(function()
             self.skin=i
+            self:UpdateCosmetics(true)
             for j,view in ipairs(self.skins) do
                 view.button.Text=j==i and "✓" or ""
                 tween(view.stroke,{Thickness=j==i and 3 or 1,Color=j==i and WHITE or cfg.Colors[j]})
@@ -105,7 +113,7 @@ function UI.new(renderer,cfg,callbacks)
         end)
     end
     self.play=button(self.card,"Play","LET'S PAINT  →",MINT)
-    self.play.Position=UDim2.fromOffset(36,311);self.play.Size=UDim2.fromOffset(348,58)
+    self.play.Position=UDim2.fromOffset(36,335);self.play.Size=UDim2.fromOffset(348,68)
     self.play.TextSize=19
     self.play.Activated:Connect(function()
         if (self.mode=="menu" or self.mode=="win") and callbacks.onPlay then callbacks.onPlay(self.skin) end
@@ -113,7 +121,37 @@ function UI.new(renderer,cfg,callbacks)
     self.help=text(self.card,"Help","Close a loop to claim land.\nCut a rival's trail to take them out.",12,MUTED)
     self.help.Font=Enum.Font.GothamMedium
     self.help.TextWrapped=true
-    self.help.Position=UDim2.fromOffset(32,388);self.help.Size=UDim2.fromOffset(356,42)
+    self.help.Position=UDim2.fromOffset(32,414);self.help.Size=UDim2.fromOffset(356,42)
+    self.styleButton=button(self.card,"Wardrobe","HATS & FACES  →",Color3.fromRGB(215,225,255))
+    self.styleButton.Position=UDim2.fromOffset(36,282);self.styleButton.Size=UDim2.fromOffset(348,44)
+    self.styleButton.TextSize=13
+    self.styleButton.Activated:Connect(function() self:SetMode("cosmetics") end)
+    self.cosmeticOverlay=make(screen,"Frame","WardrobeOverlay",{Size=UDim2.fromScale(1,1),
+        BackgroundColor3=INK,BackgroundTransparency=.35,BorderSizePixel=0,ZIndex=110,Visible=false})
+    self.cosmeticCard=make(self.cosmeticOverlay,"Frame","WardrobeCard",{
+        AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(420,460),
+        BackgroundColor3=PANEL,BorderSizePixel=0,ZIndex=111})
+    round(self.cosmeticCard,24);edge(self.cosmeticCard)
+    self.cosmeticScale=make(self.cosmeticCard,"UIScale","ResponsiveScale",{Scale=1})
+    local wardrobeTitle=text(self.cosmeticCard,"Title","MAKE IT YOURS",25,WHITE,112)
+    wardrobeTitle.Position=UDim2.fromOffset(20,12);wardrobeTitle.Size=UDim2.fromOffset(380,40)
+    self.previewViewport=make(self.cosmeticCard,"ViewportFrame","BeanPreview",{
+        Position=UDim2.fromOffset(130,54),Size=UDim2.fromOffset(160,140),BackgroundTransparency=1,ZIndex=112})
+    if callbacks.createCosmeticPreview then self.preview=callbacks.createCosmeticPreview(self.previewViewport) end
+    self.hatButton=button(self.cosmeticCard,"HatChoice","",Color3.fromRGB(215,225,255),113)
+    self.hatButton.Position=UDim2.fromOffset(36,202);self.hatButton.Size=UDim2.fromOffset(348,66)
+    self.faceButton=button(self.cosmeticCard,"FaceChoice","",Color3.fromRGB(255,216,147),113)
+    self.faceButton.Position=UDim2.fromOffset(36,278);self.faceButton.Size=UDim2.fromOffset(348,66)
+    self.styleDone=button(self.cosmeticCard,"Done","LOOKING GOOD  →",MINT,113)
+    self.styleDone.Position=UDim2.fromOffset(36,366);self.styleDone.Size=UDim2.fromOffset(348,68)
+    self.hatButton.Activated:Connect(function()
+        self.hatIndex=self.hatIndex%#self.hats+1;self:UpdateCosmetics(true)
+    end)
+    self.faceButton.Activated:Connect(function()
+        self.faceIndex=self.faceIndex%#self.faces+1;self:UpdateCosmetics(true)
+    end)
+    self.styleDone.Activated:Connect(function() self:UpdateCosmetics(true);self:SetMode("menu") end)
+    self:UpdateCosmetics(false)
     -- Separate, transparent results layout: the frozen arena is the backdrop.
     self.defeatOverlay=make(screen,"Frame","DefeatOverlay",{Size=UDim2.fromScale(1,1),
         BackgroundColor3=Color3.new(0,0,0),BackgroundTransparency=.45,BorderSizePixel=0,
@@ -186,6 +224,9 @@ function UI.new(renderer,cfg,callbacks)
         self:UpdateSoundLabel()
     end)
     self:UpdateSoundLabel()
+    for _,b in ipairs({self.play,self.styleButton,self.hatButton,self.faceButton,self.styleDone,
+        self.replay,self.returnMenu,self.soundButton,self.musicButton}) do self.animations:Bind(b) end
+    for _,swatch in ipairs(self.skins) do self.animations:Bind(swatch.button) end
     self.resize=renderer.viewport:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:Resize() end)
     self:SetMode("menu")
     task.defer(function() if screen.Parent then self:Resize() end end)
@@ -209,7 +250,8 @@ function UI:Resize()
     self.killCard.Position=UDim2.fromOffset(narrow and 12 or 18,narrow and 168 or 56)
     self.killCard.Size=UDim2.fromOffset(narrow and 116 or 142,60)
     self.killCounter.Size=UDim2.new(1,-24,0,28)
-    self.menuScale.Scale=math.min(1,(s.X-32)/420,(s.Y-110)/460)
+    self.menuScale.Scale=math.min(1,(s.X-32)/420,(s.Y-110)/480)
+    self.cosmeticScale.Scale=math.min(1,(s.X-32)/420,(s.Y-32)/460)
     self.defeatScale.Scale=math.min(1,(s.X-32)/420,(s.Y-64)/350)
     self.toast.Size=UDim2.fromOffset(math.min(s.X-24,320),30)
     self.soundButton.Position=UDim2.new(1,-12,1,-12)
@@ -225,17 +267,21 @@ function UI:NewRun()
 end
 function UI:SetMode(mode)
     self.mode=mode
+    if mode=="menu" then self.animations:Reveal(self.card)
+    elseif mode=="cosmetics" then self.animations:Reveal(self.cosmeticCard)
+    elseif mode=="defeat" then self.animations:Reveal(self.defeatGroup) end
+    self.cosmeticOverlay.Visible=mode=="cosmetics"
     if self.callbacks.onModeChanged then self.callbacks.onModeChanged(mode) end
     self.overlay.Visible=mode=="menu" or mode=="win"
     self.defeatOverlay.Visible=mode=="defeat"
-    self.hud.Visible=mode~="menu" and mode~="win" and mode~="defeat"
+    self.hud.Visible=mode~="menu" and mode~="win" and mode~="defeat" and mode~="cosmetics"
     self.result.Visible=mode=="defeat"
     self.skinTitle.Visible=mode~="defeat"
     for _,view in ipairs(self.skins) do view.button.Visible=mode~="defeat" end
     self.title.TextColor3=mode=="defeat" and Color3.fromRGB(255,142,146) or WHITE
     self.badge.Text=mode=="defeat" and "ROUND COMPLETE" or "PAINT. CAPTURE. REPEAT."
     self.help.Text="Close a loop to claim land.\nCut a rival's trail to take them out."
-    self.soundButton.Visible=mode~="revive" and mode~="defeat" -- don't cover the revive action area
+    self.soundButton.Visible=mode~="revive" and mode~="defeat" and mode~="cosmetics" -- don't cover the revive action area
     self.musicButton.Visible=self.soundButton.Visible
     if mode=="menu" then
         self.title.Text="PAINTLAND"
@@ -253,6 +299,18 @@ function UI:SetMode(mode)
     end
 end
 -- Snapshot at death, before any revive choice or delayed HUD update.
+function UI:UpdateCosmetics(notify)
+    local color=self.cfg.Colors[self.skin]
+    local choice=Catalog.Selection(self.cfg,self.hatIndex,self.faceIndex,color)
+    self.hatButton.Text="HAT: "..string.upper(self.hats[self.hatIndex]).."  →"
+    self.faceButton.Text="FACE: "..string.upper(self.faces[self.faceIndex].Name).."  →"
+    if self.preview then self.preview:Set(choice,color) end
+    if notify and self.callbacks.onCosmeticChanged then self.callbacks.onCosmeticChanged(choice) end
+end
+function UI:Animate(dt)
+    self.animations:Update(dt)
+    if self.mode=="cosmetics" and self.preview then self.preview:Update(dt,self.cfg.ReducedMotion) end
+end
 function UI:RecordDefeat(world)
     local player=world.entities[1]
     local count=world.grid.counts[1] or 0
@@ -289,6 +347,9 @@ end
 function UI:Destroy()
     self.toastVersion+=1
     if self.resize then self.resize:Disconnect() end
+    self.animations:Destroy()
+    if self.preview then self.preview:Destroy() end
+    self.cosmeticOverlay:Destroy()
     self.progress:Destroy();self.leaderboard:Destroy();self.minimap:Destroy()
     self.hud:Destroy();self.overlay:Destroy();self.defeatOverlay:Destroy();self.soundButton:Destroy();self.musicButton:Destroy()
 end
