@@ -59,7 +59,8 @@ Config.SpawnRetrySeconds = 2.5
 
 -- Kill streaks: spring bounce and restrained arcade typography.
 Config.KillPopupSpring = 17
-Config.KillPopupDuration = 1.65
+Config.KillPopupDuration = 0.9
+Config.KillComboWindowSeconds = 3
 Config.KillCameraEnabled = true
 Config.KillCameraImpulse = 5
 Config.SimulationSubstep = 1 / 60
@@ -165,11 +166,11 @@ Config.CircleArena = true
 Config.ArenaRadius = Config.Grid * Config.Cell * 0.5 - Config.Cell * 2
 Config.ArenaBoundaryMargin = Config.Cell * 0.85
 Config.CircleBorderStuds = 8
-Config.CaptureWorldPopupDuration = 1.05
+Config.CaptureWorldPopupDuration = 0.8
 Config.CaptureWorldPopupMinCells = 3
 Config.CaptureFlashMaxRegions = 24
 Config.CaptureFlashMaxActive = 72
-Config.CaptureFlashDuration = 0.34
+Config.CaptureFlashDuration = 0.24
 Config.ExpandComboWindow = 6
 Config.ExpandComboMax = 99
 Config.ShowBotLandBillboards = false

@@ -1,4 +1,4 @@
--- V20: Workspace 3D fade-outs for territory absorbed from an eliminated player.
+-- V32: visible victim -> pale flash -> winner color sweep above absorbed land.
 -- Never draws a second map in a SurfaceGui or StarterGui.
 local ChunkGeometry = require(script.Parent.ChunkGeometry)
 
@@ -26,7 +26,7 @@ function LandMergeEffects:GetPart()
     return table.remove(self.pool) or newOverlay(self.renderer.arena.effectsFolder)
 end
 
-function LandMergeEffects:Emit(killer, victim, changedCells)
+function LandMergeEffects:Emit(killer, victim, changedCells, hit)
     if self.cfg.TerritoryMergeEffectsEnabled == false then return end
     if not killer or not victim or not changedCells then return end
     local rects = ChunkGeometry.RectanglesFromSet(changedCells, self.cfg.Grid)
@@ -37,6 +37,7 @@ function LandMergeEffects:Emit(killer, victim, changedCells)
     local half = self.cfg.Grid * cell / 2
     local duration = self.cfg.TerritoryMergeDuration or 0.45
     local count = 0
+    local origin=hit and hit.position or killer.pos
     -- Sample across the resulting rectangles instead of showing many heavy parts.
     local stride = math.max(1, math.ceil(#rects / maxParts))
     for i = 1, #rects, stride do
@@ -47,13 +48,14 @@ function LandMergeEffects:Emit(killer, victim, changedCells)
         p.Size = Vector3.new((r.x2 - r.x1 + 1) * cell, 0.025,
             (r.y2 - r.y1 + 1) * cell)
         p.Position = Vector3.new(-half + (r.x1 + r.x2 - 1) * 0.5 * cell,
-            0.265, -half + (r.y1 + r.y2 - 1) * 0.5 * cell)
+            0.435, -half + (r.y1 + r.y2 - 1) * 0.5 * cell)
         p.Transparency = 0.18
-        local dx = p.Position.X - killer.pos.X
-        local dz = p.Position.Z - killer.pos.Y
+        local dx = p.Position.X - origin.X
+        local dz = p.Position.Z - origin.Y
         local distance = math.sqrt(dx * dx + dz * dz)
         self.active[#self.active + 1] = {
-            part = p, start = self.time + math.min(0.20, distance / 600),
+            part = p, start = self.time + (self.cfg.ReducedMotion and 0 or math.min(self.cfg.TerritoryMergeWaveDelay or 0.25, distance / 500)),
+            from=victim.color, to=killer.color,
             duration = duration,
         }
         count += 1
@@ -71,7 +73,14 @@ function LandMergeEffects:Update(dt)
             table.remove(self.active, i)
         elseif alpha >= 0 then
             local t = math.clamp(alpha, 0, 1)
-            item.part.Transparency = 0.18 + 0.82 * (t * t * (3 - 2 * t))
+            local flash=math.clamp(t/0.18,0,1)
+            if self.cfg.ReducedMotion then
+                item.part.Color=item.from:Lerp(item.to,t)
+            else
+                item.part.Color=t<0.18 and item.from:Lerp(Color3.new(1,1,1),flash)
+                    or Color3.new(1,1,1):Lerp(item.to,math.clamp((t-.18)/.55,0,1))
+            end
+            item.part.Transparency = 0.12 + 0.88 * (t * t * (3 - 2 * t))
         end
     end
 end

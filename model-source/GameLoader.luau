@@ -104,8 +104,8 @@ function Loader.Start()
                     expandCombo:Show(count / world.grid.playableTotal * 100, entity.color)
                 end
             end,
-            onMerge = function(killer, victim, takenCells)
-                mergeEffects:Emit(killer, victim, takenCells)
+            onMerge = function(killer, victim, takenCells, hit)
+                mergeEffects:Emit(killer, victim, takenCells, hit)
                 arcadeEffects:Merge(killer, takenCells, world.grid)
             end,
             onAbsorb = function(killer, amount, takenCells)
@@ -152,14 +152,14 @@ function Loader.Start()
                 end)
                 visual("VictoryWorldParticles", function() victoryFX:Play(winner) end)
             end,
-            onEliminate = function(victim, killer, cause)
+            onEliminate = function(victim, killer, cause, hit)
                 if victim.isHuman then ui:RecordDefeat(world) end
                 if killer and killer.isHuman and killer ~= victim and killer.alive then
                     audio:Kill(killer.killStreak)
                 end
                 if victim.isHuman then audio:Death() end
-                arcadeEffects:Elimination(victim, killer)
-                toyFX:Elimination(victim, killer)
+                arcadeEffects:Elimination(victim, killer, hit)
+                toyFX:Elimination(victim, killer, hit)
                 renderer:RemoveEntityVisual(victim.id)
                 if killer and killer.isHuman and killer ~= victim and killer.alive then
                     killFeedback:OnKill(victim, killer)

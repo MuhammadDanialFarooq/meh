@@ -74,14 +74,14 @@ function TerritoryVFX:_showBillboard(position, percent, ownerColor)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBlack
     label.TextSize = 25
-    label.Text = string.format("+%.2f%% LAND", percent)
+    label.Text = string.format("+%.2f%%", percent)
     label.TextColor3 = ownerColor:Lerp(Color3.new(1, 1, 1), 0.25)
     label.TextStrokeColor3 = Color3.fromRGB(27, 35, 69)
     label.TextStrokeTransparency = 0.1
     local scale = make(gui, "UIScale", "PopupScale")
     scale.Scale = 0.56
 
-    local duration = self.cfg.CaptureWorldPopupDuration or 1.05
+    local duration = self.cfg.CaptureWorldPopupDuration or 0.8
     TweenService:Create(anchor, TweenInfo.new(duration, Enum.EasingStyle.Quint,
         Enum.EasingDirection.Out), {Position = anchor.Position + Vector3.new(0, 3, 0)}):Play()
     TweenService:Create(scale, TweenInfo.new(0.24, Enum.EasingStyle.Back,
@@ -152,7 +152,7 @@ function TerritoryVFX:Play(entity, gainedCells, changedCells, grid)
     end)
     local max = self.cfg.CaptureFlashMaxRegions or 24
     local version = self.generation
-    for index = 1, math.min(#regions, max) do
+    for index = 1, (self.cfg.ReducedMotion and 0 or math.min(#regions, max)) do
         self:_showFlash(regions[index], entity.color, grid,
             (index - 1) * 0.014, version)
     end

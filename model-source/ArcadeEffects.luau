@@ -66,8 +66,7 @@ function ArcadeEffects.new(renderer, cfg)
 end
 
 function ArcadeEffects:_project(point, camera)
-    local size = self.renderer.viewport.AbsoluteSize
-    return size * 0.5 + (point - camera) * self.renderer.pixelScale
+    return self.renderer:GetPlayerScreenPosition(point, 0.5)
 end
 
 function ArcadeEffects:_visible(point)
@@ -81,7 +80,7 @@ function ArcadeEffects:_visible(point)
 end
 
 function ArcadeEffects:_ring(point, color, width, duration, delay)
-    if self.cfg.ImpactEffectsEnabled == false then return end
+    if self.cfg.ImpactEffectsEnabled == false or self.cfg.ReducedMotion then return end
     local maxRings = self.cfg.ImpactMaxRings or 14
     if #self.activeRings >= maxRings then return end
     if not self:_visible(point) then return end
@@ -142,13 +141,14 @@ function ArcadeEffects:Capture(entity, count)
     end
 end
 
-function ArcadeEffects:Elimination(victim, killer)
+function ArcadeEffects:Elimination(victim, killer, hit)
     if not victim then return end
     local color = killer and killer.color or victim.color
-    self:_ring(victim.pos, color, 95, 0.51, 0)
-    self:_ring(victim.pos, Color3.new(1, 1, 1), 57, 0.37, 0.075)
+    local origin = hit and hit.position or victim.pos
+    self:_ring(origin, Color3.new(1, 1, 1), 42, 0.22, 0)
+    self:_ring(origin, color, 80, 0.42, 0.035)
     local humanInvolved = victim.isHuman or (killer and killer.isHuman)
-    self:_burst(victim.pos, color, humanInvolved and 19 or 5,
+    self:_burst(origin, color, humanInvolved and 14 or 4,
         humanInvolved and 125 or 55)
 end
 

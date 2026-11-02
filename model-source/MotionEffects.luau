@@ -66,7 +66,7 @@ function MotionEffects:Update(dt, entity, camera, enabled)
     end
     local viewport = self.renderer.viewport.AbsoluteSize
     local scale = self.renderer.pixelScale
-    local screenPos = viewport * 0.5 + (entity.pos - camera) * scale
+    local screenPos = self.renderer:GetPlayerScreenPosition(entity.pos, 0.5)
     local haloSize = (7.2 * scale) + 13 + math.sin(self.time * 4.5) * 2
     self.halo.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
     self.halo.Size = UDim2.fromOffset(haloSize, haloSize)
@@ -101,7 +101,7 @@ function MotionEffects:Update(dt, entity, camera, enabled)
                 p.gui.Visible = false
             else
                 local t = p.age / p.lifetime
-                local loc = viewport * 0.5 + (p.pos - camera) * scale
+                local loc = self.renderer:GetPlayerScreenPosition(p.pos, 0.5)
                     + p.wind * p.age + Vector2.new(0, -17) * p.age
                 local size = p.size * (1 - t * 0.6)
                 p.gui.Position = UDim2.fromOffset(loc.X, loc.Y)

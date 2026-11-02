@@ -130,7 +130,7 @@ function World:Eliminate(victim, killer, cause, claimContext, hit)
     if absorbedCount > 0 and killer then
         -- Purely visual. All owner changes happened instantly above.
         if self.events.onMerge then
-            present(self.events.onMerge, killer, victim, absorbed)
+            present(self.events.onMerge, killer, victim, absorbed, hit)
         end
         -- Reward transferred territory and the completed route. The killer's
         -- trail is cleared only when that entire exposed route became land.
@@ -139,7 +139,7 @@ function World:Eliminate(victim, killer, cause, claimContext, hit)
         end
     end
     if self.events.onEliminate then
-        present(self.events.onEliminate, victim, killer, cause)
+        present(self.events.onEliminate, victim, killer, cause, hit)
     end
     -- A final trail elimination may transfer the last enemy cells.
     if killer and killer.isHuman then

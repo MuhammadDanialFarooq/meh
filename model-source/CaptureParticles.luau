@@ -61,7 +61,7 @@ function CaptureParticles:Clear()
 end
 
 function CaptureParticles:Emit(entity, grid, changedCells, cameraPosition)
-    if not self.cfg.CaptureParticlesEnabled or not entity.alive then return end
+    if not self.cfg.CaptureParticlesEnabled or self.cfg.ReducedMotion or not entity.alive then return end
     if type(changedCells) ~= "table" then return end
     local desired = entity.isHuman
         and (self.cfg.CaptureParticlesPlayerCount or 19)
@@ -93,7 +93,7 @@ function CaptureParticles:Emit(entity, grid, changedCells, cameraPosition)
     local size = viewport.AbsoluteSize
     if size.X < 1 or size.Y < 1 then return end
     for _, source in ipairs(possible) do
-        local screenStart = size * 0.5 + (source - cameraPosition) * self.renderer.pixelScale
+        local screenStart = self.renderer:GetPlayerScreenPosition(source, 0.5)
         if screenStart.X >= -24 and screenStart.X <= size.X + 24
             and screenStart.Y >= -24 and screenStart.Y <= size.Y + 24 then
             local gui = self:_get()
@@ -121,8 +121,6 @@ end
 function CaptureParticles:Update(dt, cameraPosition)
     if #self.active == 0 then return end
     dt = math.clamp(dt, 0, 0.07)
-    local viewport = self.renderer.viewport.AbsoluteSize
-    local scale = self.renderer.pixelScale
     for i = #self.active, 1, -1 do
         local p = self.active[i]
         p.age += dt
@@ -132,8 +130,8 @@ function CaptureParticles:Update(dt, cameraPosition)
             p.gui.Visible = true
             local t = math.clamp(p.age / p.duration, 0, 1)
             local eased = 1 - (1 - t)^3
-            local origin = viewport * 0.5 + (p.source - cameraPosition) * scale
-            local destination = viewport * 0.5 + (p.target.pos - cameraPosition) * scale
+            local origin = self.renderer:GetPlayerScreenPosition(p.source, 0.5)
+            local destination = self.renderer:GetPlayerScreenPosition(p.target.pos)
             local d = destination - origin
             local unitNormal = d.Magnitude > 0.1 and Vector2.new(-d.Y, d.X).Unit or Vector2.zero
             local curved = origin:Lerp(destination, eased) + unitNormal * (math.sin(math.pi * t) * p.bend)

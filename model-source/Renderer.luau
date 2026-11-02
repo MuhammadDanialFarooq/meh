@@ -104,11 +104,11 @@ function Renderer:Resize()
     end
 end
 
-function Renderer:GetPlayerScreenPosition(pos)
+function Renderer:GetPlayerScreenPosition(pos, height)
     local camera = workspace.CurrentCamera
     if camera then
         local projected = camera:WorldToViewportPoint(Vector3.new(
-            pos.X, self.cfg.CharacterHeight or 3.7, pos.Y))
+            pos.X, height or self.cfg.CharacterHeight or 3.7, pos.Y))
         return Vector2.new(projected.X, projected.Y)
     end
     return self.viewport.AbsoluteSize * 0.5

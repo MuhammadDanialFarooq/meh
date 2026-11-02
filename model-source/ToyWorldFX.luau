@@ -22,6 +22,7 @@ function FX.new(renderer,cfg)
         rng=Random.new()},FX)
 end
 function FX:_emit(pos,color,count,size)
+    if self.cfg.ReducedMotion then return end
     local mobile=game:GetService("UserInputService").TouchEnabled
     count=math.min(mobile and math.ceil(count*.55) or count,
         self.max-#self.active)
@@ -47,8 +48,8 @@ end
 function FX:Capture(entity,count)
     if entity and count>0 then self:_emit(entity.pos,entity.color,math.min(12,3+math.floor(math.sqrt(count))),1) end
 end
-function FX:Elimination(victim,killer)
-    if victim then self:_emit(victim.pos,killer and killer.color or victim.color,18,1.3) end
+function FX:Elimination(victim,killer,hit)
+    if victim then self:_emit(hit and hit.position or victim.pos,killer and killer.color or victim.color,12,1.1) end
 end
 function FX:Spawn(entity)
     if entity then self:_emit(entity.pos,entity.color,7,.65) end

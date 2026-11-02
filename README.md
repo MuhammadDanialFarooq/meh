@@ -1,16 +1,48 @@
-# Paintland V31 beta — trail-following territory joins
+# Paintland V32 beta — reference-inspired capture and kill effects
 
 A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
 upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v31.rbxmx`.
+`model-source/`. The importable result is `dist/PaintlandClient_v32.rbxmx`.
 
 ## Install in Roblox Studio
 
 1. Save a backup of your place. Stop the play session.
 2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v31.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
+3. Insert `dist/PaintlandClient_v32.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
 4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
 5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+
+## V32 reference-inspired effects
+
+The uploaded 144p gameplay video was inspected using sampled frames and closer
+sequences around 39–45 seconds and 190–201 seconds. The reference shows short
+pale flashes over fresh paint, floating percentage gains and compact multikill
+announcements. This update adapts those cues to the existing Roblox presentation:
+
+- Captured territory gets a quicker pale-to-owner sweep and a floating `+x.xx%` reward.
+- Trail-cut eliminations burst at the collision contact, rather than the defeated character's distant head.
+- Absorbed land visibly transitions from victim color through pale white to winner color, spreading from the contact area. The overlay is now above the land surface; the old overlay was inside the land and could be hidden.
+- Kill announcements use `ELIMINATED`, `DOUBLE KILL`, `TRIPLE KILL`, `QUADRA KILL`, `ACE!`, then `UNSTOPPABLE!`. Multikills require kills within a configurable 3-second gap. Lifetime kill streaks, including the five audio tiers, remain separate.
+- Capture sparks, impact rings and motion dust now use the real tilted camera's projection, rather than the older flat 2D camera approximation.
+- Reduced-motion mode suppresses impact bursts and kill bounce, and uses a simple takeover color fade.
+
+The large expanding circular paint mechanic in the clip has not been added as an
+ability. The changes above are presentation only: ownership, kill rules, joining,
+revives and defeat flow remain governed by the existing simulation. No sounds or
+artwork were extracted from the video; custom sound settings and muted defaults
+remain unchanged.
+
+Effects settings are in **PaintlandModules > Config**: `KillComboWindowSeconds`,
+`KillPopupDuration`, `CaptureFlashDuration`, `CaptureWorldPopupDuration`,
+`TerritoryMergeDuration`, `TerritoryMergeWaveDelay`, and `ReducedMotion`.
+
+In Studio, cut a trail far from the victim's head, check the burst stays at the
+cut as the camera moves, inspect a takeover color sweep, then make two quick
+kills and two widely spaced kills. Check reward text and effects on a phone.
+Automated controller tests cover origin selection, timed combos, projection calls,
+overlay height, recycling, object limits and reduced motion. They cannot prove
+pixel-level appearance or performance in Roblox. The low-resolution reference
+also limits small-detail comparisons; this is an adaptation, not an exact replica.
 
 ## V31 trail joins — game loop before abilities
 
@@ -161,7 +193,7 @@ voice limits, mute, reset, death and teardown. Gameplay tests cover five capture
 regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
 The new enclosure test fails against original V26 gameplay code, confirming it
 reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms thirteen original scripts changed and three modules were added.
+sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and three modules were added.
 
 ```sh
 python3 tools/build_model.py

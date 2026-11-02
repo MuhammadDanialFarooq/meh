@@ -3,15 +3,7 @@
 local KillFeedback = {}
 KillFeedback.__index = KillFeedback
 
-local STAGES = {
-    [1] = "NICE!",
-    [2] = "COOL!",
-    [3] = "AMAZING!",
-    [4] = "INSANE!",
-    [5] = "UNSTOPPABLE!",
-    [6] = "DOMINATING!",
-    [7] = "RAMPAGE!",
-}
+local STAGES = {"ELIMINATED", "DOUBLE KILL", "TRIPLE KILL", "QUADRA KILL", "ACE!"}
 
 local INK = Color3.fromRGB(36, 46, 61)
 local WHITE = Color3.fromRGB(255, 255, 255)
@@ -53,6 +45,7 @@ function KillFeedback.new(screen, cfg)
     local self = setmetatable({}, KillFeedback)
     self.cfg = cfg
     self.age = 0
+    self.clock, self.lastKill, self.combo = 0, -math.huge, 0
     self.alive = false
     self.scaleValue = 1
     self.scaleVelocity = 0
@@ -75,14 +68,14 @@ function KillFeedback.new(screen, cfg)
         ZIndex = 61,
     })
     self.scale = make(self.group, "UIScale", "PopSpring", {Scale = 1})
-    self.shadow = text(self.group, "TypeShadow", "NICE!", 49, INK,
+    self.shadow = text(self.group, "TypeShadow", "ELIMINATED", 34, INK,
         Enum.Font.GothamBlack, 62)
     self.shadow.Position = UDim2.fromOffset(3, 5)
     self.shadow.Size = UDim2.new(1, 0, 0, 66)
     self.shadow.TextStrokeTransparency = 1
     self.shadow.TextTransparency = 0.82
 
-    self.primary = text(self.group, "Callout", "NICE!", 49, WHITE,
+    self.primary = text(self.group, "Callout", "ELIMINATED", 34, WHITE,
         Enum.Font.GothamBlack, 63)
     self.primary.Size = UDim2.new(1, 0, 0, 66)
     self.primary.TextStrokeTransparency = 0.08
@@ -118,12 +111,16 @@ end
 function KillFeedback:Reset()
     self.alive = false
     self.streak = 0
+    self.combo, self.lastKill = 0, -math.huge
     self.age = 0
     self.group.Visible = false
 end
 
 function KillFeedback:OnKill(victim, killer)
     local count = killer.killStreak or 1
+    self.combo = self.clock-self.lastKill <= (self.cfg.KillComboWindowSeconds or 3)
+        and (self.combo+1) or 1
+    self.lastKill=self.clock
     self.streak = count
     self.age = 0
     self.alive = true
@@ -132,13 +129,12 @@ function KillFeedback:OnKill(victim, killer)
     self.offset = 35
     self.offsetVelocity = -480
 
-    self.primary.Text = STAGES[count] or (count < 10 and "LEGENDARY!" or "GODLIKE!")
+    self.primary.Text = STAGES[self.combo] or "UNSTOPPABLE!"
     self.shadow.Text = self.primary.Text
     self.primary.TextColor3 = (count >= 5 and YELLOW)
         or (count >= 3 and Color3.fromRGB(255, 177, 113))
         or WHITE
-    self.subtitle.Text = string.format("%d KILL %s", count,
-        count == 1 and "STARTED" or "STREAK")
+    self.subtitle.Text = string.format("%d KILL STREAK", count)
     self.victim.Text = "ELIMINATED  " .. tostring(victim.name)
     self.group.Visible = true
     for _, obj in ipairs(self.sparks) do obj.Visible = count >= 2 end
@@ -157,6 +153,7 @@ function KillFeedback:ApplyOpacity(fade)
 end
 
 function KillFeedback:Update(dt)
+    self.clock += math.max(0, dt)
     if not self.alive then return end
     dt = math.clamp(dt, 0, 0.05)
     self.age += dt
@@ -165,8 +162,8 @@ function KillFeedback:Update(dt)
         self.scaleVelocity, 1, speed, dt)
     self.offset, self.offsetVelocity = spring(self.offset,
         self.offsetVelocity, 0, speed * 0.8, dt)
-    self.scale.Scale = math.clamp(self.scaleValue, 0.35, 1.25)
-    self.group.Position = UDim2.new(0.5, 0, 0.235, self.offset)
+    self.scale.Scale = self.cfg.ReducedMotion and 1 or math.clamp(self.scaleValue, 0.35, 1.25)
+    self.group.Position = UDim2.new(0.5, 0, 0.235, self.cfg.ReducedMotion and 0 or self.offset)
 
     local duration = self.cfg.KillPopupDuration or 1.65
     if self.age > duration then
