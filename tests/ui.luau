@@ -35,7 +35,7 @@ function tweens:Create(obj,info,goals)
     return tween
 end
 local services={RunService={IsStudio=function() return false end},TweenService=tweens,
-    UserInputService={TouchEnabled=false,InputBegan=signal(),GetFocusedTextBox=function() return nil end},Players={LocalPlayer={UserId=0}}}
+    UserInputService={TouchEnabled=false,InputBegan=signal(),InputChanged=signal(),InputEnded=signal(),WindowFocusReleased=signal(),GetFocusedTextBox=function() return nil end},Players={LocalPlayer={UserId=0}}}
 game.GetService=function(_,name) return services[name] or {} end
 local deferred={}
 local taskDouble={defer=function(f) f() end,delay=function(_,f) table.insert(deferred,f) end,spawn=function() end}
@@ -92,7 +92,7 @@ function uiInstance.new(class)
     return obj
 end
 -- Override UI factory environments while retaining actual dependencies and logic.
-for _,name in ipairs({"AbilityHUD","WalletHUD","ResultsScreen","ReviveHeart","ReviveController","Fonts","MainMenu","ButtonEffects","UIController","HUDCanvas","LeaderboardController","MinimapController"}) do
+for _,name in ipairs({"AbilityInput","LoadoutMenu","AbilityHUD","WalletHUD","ResultsScreen","ReviveHeart","ReviveController","Fonts","MainMenu","ButtonEffects","UIController","HUDCanvas","LeaderboardController","MinimapController"}) do
     local env=setmetatable({UDim=UDim,Enum=enums,Instance=uiInstance,task=taskDouble,
         TweenInfo={new=function() return {} end},ColorSequence={new=function() return {} end},
         Font={new=function(family,weight,style) return {Family=family,Weight=weight,Style=style} end},
@@ -115,6 +115,8 @@ local renderer={screen=screen,viewport=viewport,SetLeader=function() end}
 local playSkin,muted
 local ui=loadModule("UIController").new(renderer,uiCfg,{
     onPlay=function(skin) playSkin=skin end,onSoundToggle=function(value) muted=value end})
+ui.play.Activated:Fire();assert(playSkin==nil,"Play bypassed loading loadout")
+ui:SetWallet({loaded=true,coins=0,gems=0,persistent=false})
 assert(ui.overlay.Visible and not ui.hud.Visible,"Menu visibility broken")
 assert(ui.overlay.BackgroundTransparency>=.5,"Menu tint hides the live match")
 assert(ui.soundButton.Text=="SOUND: OFF","UI did not reflect muted default")

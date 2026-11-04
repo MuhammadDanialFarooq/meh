@@ -6,6 +6,7 @@ local chosenSkin
 local menuUI=loadModule("UIController").new(renderer,menuCfg,{
     onPlay=function(skin) chosenSkin=skin end})
 local menu=menuUI.menu
+menuUI:SetWallet({loaded=true,coins=0,gems=0,persistent=false})
 for _,decoration in ipairs({menu.root,menu.hero,menu.art,menu.mascot,menu.footer}) do
     assert(decoration.Active==false and decoration.Selectable==false,
         "Decoration captures input or controller focus: "..decoration.Name)
@@ -31,6 +32,7 @@ for _,size in ipairs({{320,568},{375,667},{390,844},{568,320},{640,360},{844,390
         assert(not overlap(rect(menu.footer),rect(menuUI.soundButton)),"Sound overlaps footer"..context)
     end
     local controls={menu.play}
+    for _,button in ipairs(menu.roomButtons) do table.insert(controls,button) end
     for _,view in ipairs(menu.skins) do table.insert(controls,view.button) end
     for i,button in ipairs(controls) do
         local bounds=rect(button)

@@ -1,4 +1,4 @@
-"""Verify V42 embedded sources, module references and service installation paths."""
+"""Verify V43 embedded sources, module references and service installation paths."""
 import re
 import xml.etree.ElementTree as ET
 from build_model import ROOT, VERSION, SERVER_SOURCE, module_sources
@@ -47,7 +47,7 @@ for extension in ['rbxlx', 'rbxmx']:
         child(root, 'Workspace', 'Workspace')
         child(root, 'Players', 'Players')
     else:
-        wrapper = child(root, 'PaintlandV42', 'Folder')
+        wrapper = child(root, 'PaintlandV43', 'Folder')
         replicated = child(wrapper, 'ReplicatedStorage', 'Folder')
         scripts = child(wrapper, 'StarterPlayerScripts', 'Folder')
         server_service = child(wrapper, 'ServerScriptService', 'Folder')

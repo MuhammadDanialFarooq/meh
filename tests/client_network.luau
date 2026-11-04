@@ -22,8 +22,8 @@ nc.ready=true;nc.abilityRemote={FireServer=function(_,msg) abilitySent=msg end}
 nc:UseAbility("Dash");assert(abilitySent and abilitySent.id=="Dash","Ability intent wasn't sent")
 nc:Receive({kind="ability",actorId=2,id="Dash",duration=.65,multiplier=2.25})
 assert(abilitySeen[1]=="Dash" and abilitySeen[2]==1 and nc.predicted.dashRemaining==.65,"Dash acknowledgement failed to map local actor/boost")
-nc:Receive({kind="abilityState",cooldowns={Dash=8,Splash=0}})
-assert(abilityState.cooldowns.Dash==8,"Server cooldown didn't reach UI callback")
+nc:Receive({kind="abilityState",equipped="Dash",charge=35,required=100,ready=false})
+assert(abilityState.charge==35 and nc.world.entities[1].equippedAbility=="Dash","Server charge didn't reach UI callback")
 assert(created==1 and nc.world.entities[1].userId==22 and nc.world.entities[2].userId==21,"Local slot remapping failed")
 for i,owner in ipairs(sw.grid.owners) do
     assert(nc.world.grid.owners[i]==(owner==2 and 1 or owner==1 and 2 or owner),"Owner remapping failed")

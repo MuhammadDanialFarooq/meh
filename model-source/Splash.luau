@@ -1,6 +1,5 @@
 -- One ability definition. Only AbilityService calls Activate on the authority.
-local Splash={Id="Splash",Name="SPLASH",Key="Q",Gamepad="ButtonX",Color=Color3.fromRGB(78,214,245)}
-function Splash.Cooldown(cfg) return math.clamp(cfg.SplashCooldownSeconds or 18,1,300) end
+local Splash={Id="Splash",Name="SPLASH",Color=Color3.fromRGB(78,214,245)}
 function Splash.Activate(world,actor,cfg)
     local grid=world.grid
     -- No free return from an exposed trail: the loop remains the core mechanic.

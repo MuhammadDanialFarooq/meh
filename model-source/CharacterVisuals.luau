@@ -2,6 +2,8 @@
 -- No external character models, MeshIds, uploaded hats, or invisible face plates.
 local SlimeVisuals=require(script.Parent.SlimeVisuals)
 local Fonts=require(script.Parent.Fonts)
+local AbilityIndicator=require(script.Parent.AbilityIndicator)
+local Catalog=require(script.Parent.LoadoutCatalog)
 local CharacterVisuals = {}
 CharacterVisuals.__index = CharacterVisuals
 
@@ -156,8 +158,12 @@ function CharacterVisuals:Create(entity)
         elastic=SlimeVisuals.new(entity.pos,entity.heading),lastTime=os.clock(),rest={},
         name=name,crown=crown,hatParts={},cosmetics={},createdAt=os.clock()}
     self.objects[entity.id]=record
+    record.indicator=AbilityIndicator.new(root,self.folder,self.cfg)
+    record.characterId=entity.characterId
     local cosmetics=self.equipped[entity.id] or
         (entity.isHuman and self.cfg.PlayerCosmetics or self.cfg.BotCosmetics) or {}
+    local character=Catalog.ByCharacter[entity.characterId]
+    if character and character.Id~="Slime" then cosmetics=table.clone(cosmetics);cosmetics.Hat=character.Hat end
     self:SetCosmetics(entity.id,cosmetics)
     return record
 end
@@ -209,10 +215,12 @@ end
 function CharacterVisuals:Update(entity,isLeader)
     if not entity.alive then self:Remove(entity.id); return end
     local r=self.objects[entity.id] or self:Create(entity)
+    if r.characterId~=entity.characterId then r=self:Create(entity) end
     r.name.Text=entity.name
     r.crown.Visible=isLeader
     r.body.Color=entity.color
     local now=os.clock()
+    r.indicator:Update(entity,now-r.lastTime)
     local elastic=SlimeVisuals.Step(r.elastic,entity.pos,entity.heading,now-r.lastTime,
         self.cfg.ReducedMotion or self.cfg.SlimeVisualsEnabled==false)
     r.lastTime=now
@@ -247,7 +255,7 @@ end
 
 function CharacterVisuals:Remove(id)
     local r=self.objects[id]
-    if r then r.model:Destroy() end
+    if r then r.indicator:Destroy();r.model:Destroy() end
     self.objects[id]=nil
 end
 function CharacterVisuals:Clear()

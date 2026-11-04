@@ -77,9 +77,13 @@ function Client:Receive(message)
     if type(message)~="table" then return end
     local kind=message.kind
     if kind=="wallet" then self:Emit("onWallet",message);return end
+    if kind=="loadoutResult" then self:Emit("onLoadoutResult",message);return end
     if self.accepting==false and kind~="left" and kind~="error" then return end
     if kind=="snapshot" then self:ApplySnapshot(message)
-    elseif kind=="abilityState" then self:Emit("onAbilityState",message)
+    elseif kind=="abilityState" then
+        local actor=self.world and self.world.entities[1]
+        if actor then actor.equippedAbility=message.equipped;actor.abilityCharge=message.charge;actor.abilityRequired=message.required end
+        self:Emit("onAbilityState",message)
     elseif kind=="ability" then
         local id=self:MapId(message.actorId)
         if id==1 and message.id=="Dash" and self.predicted then
@@ -102,7 +106,7 @@ function Client:Receive(message)
     elseif kind=="capture" then
         self:Emit("onCapture",self:MapId(message.actorId),message.count,message.playableTotal)
     elseif kind=="elimination" then
-        self:Emit("onElimination",self:MapId(message.victimId),message.killerId and self:MapId(message.killerId),message.cause)
+        self:Emit("onElimination",self:MapId(message.victimId),message.killerId and self:MapId(message.killerId),message.cause,message)
     elseif kind=="victory" then
         -- Wait for the completed ownership snapshot before showing final stats.
         self.pendingVictory=message.winnerId
@@ -158,6 +162,8 @@ function Client:ApplySnapshot(packet)
         e.drawing=wire.drawing;e.visualVersion=wire.visualVersion;e.trailGeneration=wire.trailGeneration;e.spawnRevision=wire.spawnRevision
         e.targetHeading=wire.targetHeading;e.heading=e.heading or wire.heading
         e.dashRemaining=wire.dashRemaining or 0;e.dashMultiplier=wire.dashMultiplier or 1
+        e.characterId=wire.characterId or "Slime";e.equippedAbility=wire.equippedAbility or ""
+        e.abilityCharge=wire.abilityCharge or 0;e.abilityRequired=wire.abilityRequired or 100
         if wire.nodes then
             e.nodes={};for i,p in ipairs(wire.nodes) do e.nodes[i]=Vector2.new(p[1],p[2]) end
         end
@@ -186,7 +192,7 @@ function Client:ApplySnapshot(packet)
     end
     if fresh then self:Emit("onWorld",world) end
     self:Emit("onSnapshot",world,packet)
-    self:Emit("onAbilityState",{cooldowns=packet.cooldowns or {}})
+    self:Emit("onAbilityState",packet.abilityState or {})
     if world.roundComplete and not self.victoryShown then
         self.victoryShown=true;self.pendingVictory=nil
         self:Emit("onVictory",world.winnerId,world)

@@ -27,6 +27,10 @@ function Server.Start(cfg)
     local currency=CurrencyService.new(cfg,send)
     registry.currency=currency
     local abilities=AbilityService.new(cfg)
+    local function equip(player,actor)
+        local loadout=currency:Loadout(player)
+        actor.characterId=loadout.character;abilities:Equip(actor,loadout.equipped)
+    end
     local function broadcast(room,message)
         for _,player in pairs(room.players) do send(player,message) end
     end
@@ -52,6 +56,7 @@ function Server.Start(cfg)
             onCapture=function(actor,count)
                 local owner=room.players[actor.id]
                 if owner then currency:Capture(owner,count,world.grid.playableTotal) end
+                abilities:Capture(actor,count,world.grid.playableTotal)
                 broadcast(room,{kind="capture",actorId=actor.id,count=count,playableTotal=world.grid.playableTotal})
             end,
             onAbsorb=function(actor,count)
@@ -60,6 +65,7 @@ function Server.Start(cfg)
             onEliminate=function(victim,killer,cause)
                 if killer and killer~=victim and killer.alive and room.players[killer.id] then
                     currency:Kill(room.players[killer.id])
+                    abilities:Kill(killer)
                 end
                 local player=room.players[victim.id]
                 if player then
@@ -70,7 +76,8 @@ function Server.Start(cfg)
                         deadline=room.pending[victim.id].deadline,revivesLeft=room.credits[victim.id] or 0,
                         killerName=killer and killer.name or nil,cause=cause,snapshot=snapshot})
                 end
-                broadcast(room,{kind="elimination",victimId=victim.id,killerId=killer and killer.id or nil,cause=cause})
+                broadcast(room,{kind="elimination",victimId=victim.id,killerId=killer and killer.id or nil,cause=cause,
+                    x=victim.pos.X,y=victim.pos.Y,color={victim.color.R,victim.color.G,victim.color.B}})
             end,
             onVictory=function(winner)
                 room.state="completed";room.pending={}
@@ -95,7 +102,7 @@ function Server.Start(cfg)
             owners=full and table.clone(grid.owners) or nil,mask=full and table.clone(grid.mask) or nil,
             size=grid.size,counts=table.clone(grid.counts),playableTotal=grid.playableTotal,
             entities=entities,deltas=deltas or {},state=room.state,winnerId=room.world.winnerId,
-            cooldowns=abilities:State(room.world,room.world.entities[membership.slot])})
+            abilityState=abilities:State(room.world,room.world.entities[membership.slot])})
     end
     local function finish(room,slot)
         local pending=room.pending[slot];if not pending then return end
@@ -127,6 +134,7 @@ function Server.Start(cfg)
         if not room.world:AddPlayer(slot,player.UserId,player.DisplayName,skin) then
             registry:Remove(player);errorTo(player,"No safe spawn in this arena; try another room.");return
         end
+        equip(player,room.world.entities[slot])
         room.credits[slot]=math.max(0,math.floor(cfg.MultiplayerFreeRevivesPerRun or 1))
         clients[player].heading=nil;clients[player].lastInput=0
         if not room.private and room.count>=math.max(2,cfg.MultiplayerMinPlayers or 2) then room.state="running" end
@@ -152,10 +160,24 @@ function Server.Start(cfg)
         local ok,err=pcall(function()
             local action=message.action
             local membership=registry.byPlayer[player]
+            if (action=="quick" or action=="create" or action=="join" or action=="replay")
+                and not currency.entries[player].loaded then
+                errorTo(player,"Your character is still loading. Try joining shortly.");return
+            end
             local skin=Protocol.IsFinite(message.skin) and math.clamp(math.floor(message.skin),1,#cfg.Colors) or client.skin or 1
             currency:Publish(player)
             if action=="sync" then
                 if membership then snapshot(membership.room,player,true) end
+            elseif action=="loadout" then
+                if membership and membership.room.state=="running" then
+                    send(player,{kind="loadoutResult",accepted=false,message="Change your loadout between rounds"});return
+                end
+                local accepted,reason=currency:Action(player,message.operation,message.product)
+                if accepted and membership and membership.room.state=="lobby" then
+                    equip(player,membership.room.world.entities[membership.slot])
+                    snapshot(membership.room,player,true)
+                end
+                send(player,{kind="loadoutResult",accepted=accepted,message=reason})
             elseif action=="quick" then
                 local existing
                 for _,candidate in pairs(registry.rooms) do
@@ -202,6 +224,7 @@ function Server.Start(cfg)
                                 if not room.world:AddPlayer(id,p.UserId,p.DisplayName,clients[p].skin or 1) then
                                     errorTo(p,"No safe spawn in this round. Leave and try another arena.")
                                 end
+                                equip(p,room.world.entities[id])
                                 clients[p].heading=nil;clients[p].lastInput=0
                                 room.credits[id]=math.max(0,math.floor(cfg.MultiplayerFreeRevivesPerRun or 1))
                                 snapshot(room,p,true)
@@ -235,8 +258,9 @@ function Server.Start(cfg)
         if not Protocol.Allow(client.abilities,os.clock(),2,4) then return end
         local room=membership.room;local actor=room.world.entities[membership.slot]
         local accepted,result=abilities:Use(room.world,actor,message.id,room.state=="running")
-        send(player,{kind="abilityState",id=message.id,accepted=accepted,reason=not accepted and result or nil,
-            cooldowns=abilities:State(room.world,actor)})
+        local status=abilities:State(room.world,actor)
+        status.kind="abilityState";status.id=message.id;status.accepted=accepted;status.reason=not accepted and result or nil
+        send(player,status)
         if accepted then
             broadcast(room,{kind="ability",actorId=actor.id,id=message.id,x=actor.pos.X,y=actor.pos.Y,
                 duration=result.duration,multiplier=result.multiplier,radius=result.radius})

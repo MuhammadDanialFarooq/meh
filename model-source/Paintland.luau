@@ -6,7 +6,7 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local function showStartupError(message)
-    warn("[Paintland V42] " .. tostring(message))
+    warn("[Paintland V43] " .. tostring(message))
     local old = playerGui:FindFirstChild("PaintlandStartupError")
     if old then old:Destroy() end
     local gui = Instance.new("ScreenGui")
@@ -30,7 +30,7 @@ end
 
 local ok, errorMessage = xpcall(function()
     local modules = ReplicatedStorage:WaitForChild("PaintlandModules", 15)
-    assert(modules, "Install PaintlandModules under ReplicatedStorage (V42 uses shared modules)")
+    assert(modules, "Install PaintlandModules under ReplicatedStorage (V43 uses shared modules)")
     local loader = require(modules:WaitForChild("GameLoader", 10))
     loader.Start()
 end, debug.traceback)

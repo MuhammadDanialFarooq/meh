@@ -11,6 +11,7 @@ local MainMenu=require(script.Parent.MainMenu)
 local ResultsScreen=require(script.Parent.ResultsScreen)
 local WalletHUD=require(script.Parent.WalletHUD)
 local AbilityHUD=require(script.Parent.AbilityHUD)
+local LoadoutMenu=require(script.Parent.LoadoutMenu)
 local UI={}
 UI.__index=UI
 local INK=Color3.fromRGB(17,27,43)
@@ -53,6 +54,7 @@ function UI.new(renderer,cfg,callbacks)
     local screen=renderer.screen
     self.wallet=WalletHUD.new(screen,cfg)
     self.abilities=AbilityHUD.new(screen,cfg,function(id) if callbacks.onAbility then callbacks.onAbility(id) end end)
+    self.loadout=LoadoutMenu.new(screen,cfg,function(action,id) if callbacks.onLoadout then callbacks.onLoadout(action,id) end end)
     self.hud=make(screen,"Frame","HUD",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ZIndex=20})
     self.progress=HUDCanvas.new(self.hud,cfg)
     self.leaderboard=LeaderboardController.new(self.hud,cfg)
@@ -80,8 +82,11 @@ function UI.new(renderer,cfg,callbacks)
     make(self.overlay,"UIGradient","Atmosphere",{Rotation=35,
         Color=ColorSequence.new(Color3.fromRGB(45,154,218),Color3.fromRGB(75,86,194))})
     self.menu=MainMenu.new(self.overlay,cfg,function(index) self.skin=index end,function()
-        if (self.mode=="menu" or self.mode=="win") and callbacks.onPlay then callbacks.onPlay(self.skin) end
+        if not self.loadout.root.Visible and self.wallet.loaded and (self.mode=="menu" or self.mode=="win") and callbacks.onPlay then callbacks.onPlay(self.skin) end
     end,function(action)
+        if self.loadout.root.Visible then return end
+        if action=="loadout" then self.loadout:Show();return end
+        if not self.wallet.loaded then return end
         if self.mode=="menu" and callbacks.onRooms then callbacks.onRooms(action) end
     end)
     self.card=self.menu.root
@@ -134,6 +139,7 @@ function UI:Resize()
     self.killCounter.Size=UDim2.new(1,-24,0,28)
     self.wallet:Resize(s,self.mode)
     self.abilities:Resize(s)
+    self.loadout:Resize(s)
     self.menu:Resize(s)
     self.results:Resize(s)
     self.toast.Size=UDim2.fromOffset(math.min(s.X-24,320),30)
@@ -146,6 +152,7 @@ function UI:NewRun()
 end
 function UI:SetMode(mode)
     self.mode=mode
+    if mode~="menu" then self.loadout:Hide() end
     self.wallet.root.Visible=mode=="menu" or mode=="playing" or mode=="win"
     self.abilities:SetActive(mode=="playing")
     self.overlay.Visible=mode=="menu" or mode=="win"
@@ -158,6 +165,8 @@ function UI:SetMode(mode)
     self.badge.Text=mode=="win" and "100% CONQUERED" or "THE ARENA IS YOUR CANVAS"
     self.subtitle.Text=mode=="win" and "Every last tile. All yours." or "Small trail. Big takeover."
     self.play.Text=mode=="win" and "PAINT AGAIN   →" or "PLAY NOW   →"
+    if not self.wallet.loaded then self.play.Text="LOADING CHARACTER…" end
+    self.play.Active=self.wallet.loaded
     self.menu:Show(mode=="menu" or mode=="win")
     self:Resize()
 end
@@ -179,7 +188,12 @@ function UI:ShowDefeat(world)
     self:SetMode("defeat")
     self.results:Show(self.defeatStats)
 end
-function UI:SetWallet(data) self.wallet:Set(data) end
+function UI:SetWallet(data)
+    self.wallet:Set(data);self.loadout:SetWallet(data)
+    self.play.Active=self.wallet.loaded
+    self.play.Text=not self.wallet.loaded and "LOADING CHARACTER…" or (self.mode=="win" and "PAINT AGAIN   →" or "PLAY NOW   →")
+    for _,b in ipairs(self.menu.roomButtons) do b.Active=b.Name=="Loadout" or self.wallet.loaded end
+end
 function UI:SetAbilityState(data)
     self.abilities:SetState(data)
     if data.accepted==false and data.reason then self:Toast(data.reason,Color3.fromRGB(255,225,175)) end
@@ -187,6 +201,7 @@ end
 function UI:UpdatePresentation(dt)
     self.wallet:Update(dt)
     self.abilities:Update(dt)
+    self.loadout:Update(dt)
     self.results:Update(dt)
 end
 function UI:Toast(message,color)
@@ -214,6 +229,7 @@ function UI:Destroy()
     self.progress:Destroy();self.leaderboard:Destroy();self.minimap:Destroy()
     self.wallet:Destroy()
     self.abilities:Destroy()
+    self.loadout:Destroy()
     self.menu:Destroy()
     self.hud:Destroy();self.overlay:Destroy();self.results:Destroy();self.soundButton:Destroy()
 end

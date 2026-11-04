@@ -7,7 +7,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 cli = os.environ.get('LUAU_BIN', '/tmp/paintland-luau/luau')
 source_dir = Path(os.environ.get('PAINTLAND_SOURCE_DIR', ROOT / 'model-source'))
-modules = ['Splash','Dash','AbilityRegistry','AbilityService','AbilityHUD','CurrencyService','WalletHUD','MultiplayerServer','MultiplayerClient','ResultsScreen','ReviveHeart','Fonts','MainMenu','ButtonEffects','MenuDemo','TrailMerge','Config','Grid','Trails','Movement','BotAI','CollisionSystem',
+modules = ['AbilityInput','AbilityIndicator','KillBlockTrail','LoadoutCatalog','LoadoutMenu','Splash','Dash','AbilityRegistry','AbilityService','AbilityHUD','CurrencyService','WalletHUD','MultiplayerServer','MultiplayerClient','ResultsScreen','ReviveHeart','Fonts','MainMenu','ButtonEffects','MenuDemo','TrailMerge','Config','Grid','Trails','Movement','BotAI','CollisionSystem',
            'TerritorySystem','SpawnService','World','RegressionTests','ChunkGeometry','MinimapController','AudioCues','AudioController','AvatarThumbnails','LeaderboardService','LeaderboardController','HUDCanvas','UIController','ReviveController','KillFeedback','ArcadeEffects','LandMergeEffects','NetworkProtocol','MultiplayerWorld','Matchmaking']
 code = (ROOT / 'tests/runtime.luau').read_text()
 code += '\nlocal factories, cache = {}, {}\nlocal loadModule\n'
@@ -31,7 +31,7 @@ code += (ROOT / 'tests/ui.luau').read_text()
 code += (ROOT / 'tests/effects.luau').read_text()
 code += (ROOT / 'tests/buttons.luau').read_text()
 code += (ROOT / 'tests/menu.luau').read_text()
-for test in ['results.luau', 'revive_heart.luau', 'network.luau', 'client_network.luau', 'currency.luau', 'abilities.luau', 'server_transport.luau']:
+for test in ['results.luau', 'revive_heart.luau', 'network.luau', 'client_network.luau', 'currency.luau', 'loadout.luau', 'abilities.luau', 'ability_visuals.luau', 'server_transport.luau']:
     path = ROOT / 'tests' / test
     if path.exists(): code += path.read_text()
 with tempfile.TemporaryDirectory(prefix='paintland-tests-') as tmp:

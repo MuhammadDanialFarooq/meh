@@ -1,4 +1,4 @@
-"""Build V42 as an openable place and a service-organized import model.
+"""Build V43 as an openable place and a service-organized import model.
 
 Only source files in model-source are embedded. Uploaded reference places are
 never copied wholesale into the generated game.
@@ -7,8 +7,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = 42
-SERVER_SOURCE = '''-- Paintland V42 server bootstrap. Install under ServerScriptService.
+VERSION = 43
+SERVER_SOURCE = '''-- Paintland V43 server bootstrap. Install under ServerScriptService.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local modules = ReplicatedStorage:WaitForChild("PaintlandModules", 15)
@@ -20,7 +20,7 @@ if Config.MultiplayerEnabled ~= false then
         require(modules:WaitForChild("MultiplayerServer")).Start(Config)
     end, debug.traceback)
     if not ok then
-        warn("[Paintland V42] Server startup failed: " .. tostring(err))
+        warn("[Paintland V43] Server startup failed: " .. tostring(err))
         ReplicatedStorage:SetAttribute("PaintlandServerError", tostring(err))
     end
 end
@@ -58,8 +58,9 @@ def module_sources():
     for required in ['Config', 'GameLoader', 'MultiplayerServer', 'MultiplayerClient',
                      'MatchmakingUI', 'ResultsScreen', 'ReviveHeart', 'SlimeVisuals',
                      'CurrencyService', 'WalletHUD', 'Splash', 'Dash', 'AbilityRegistry',
-                     'AbilityService', 'AbilityHUD']:
-        assert required in sources, f'Required V42 module missing: {required}'
+                     'AbilityService', 'AbilityHUD', 'LoadoutCatalog', 'LoadoutMenu',
+                     'AbilityInput', 'AbilityIndicator', 'KillBlockTrail']:
+        assert required in sources, f'Required V43 module missing: {required}'
     return sources
 
 
@@ -89,7 +90,7 @@ def build():
     server = item(place, 'ServerScriptService', 'ServerScriptService', 'RBXServerScriptService')
     populate(replicated, scripts, server, sources)
     model = document()
-    wrapper = item(model, 'Folder', 'PaintlandV42', 'RBXPaintlandV42')
+    wrapper = item(model, 'Folder', 'PaintlandV43', 'RBXPaintlandV43')
     replicated = item(wrapper, 'Folder', 'ReplicatedStorage', 'RBXInstallReplicatedStorage')
     scripts = item(wrapper, 'Folder', 'StarterPlayerScripts', 'RBXInstallStarterPlayerScripts')
     server = item(wrapper, 'Folder', 'ServerScriptService', 'RBXInstallServerScriptService')

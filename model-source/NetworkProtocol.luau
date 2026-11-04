@@ -1,5 +1,5 @@
 -- Shared wire format; server validates intent, never client positions or ownership.
-local Protocol={Version=2,RemoteFolder="PaintlandNetwork",CommandRemote="Command",StateRemote="State",InputRemote="Input",AbilityRemote="Ability"}
+local Protocol={Version=3,RemoteFolder="PaintlandNetwork",CommandRemote="Command",StateRemote="State",InputRemote="Input",AbilityRemote="Ability"}
 function Protocol.IsFinite(value)
     return type(value)=="number" and value==value and value>-math.huge and value<math.huge
 end
@@ -22,6 +22,8 @@ function Protocol.Entity(e,includeTrail)
         connected=e.connected==true,isHuman=e.isHuman,alive=e.alive,x=e.pos.X,y=e.pos.Y,
         heading=e.heading,targetHeading=e.targetHeading,kills=e.kills,killStreak=e.killStreak,
         dashRemaining=e.dashRemaining or 0,dashMultiplier=e.dashMultiplier or 1,
+        characterId=e.characterId or "Slime",equippedAbility=e.equippedAbility or "",
+        abilityCharge=e.abilityCharge or 0,abilityRequired=e.abilityRequired or 100,
         bestKillStreak=e.bestKillStreak,drawing=e.drawing,visualVersion=e.visualVersion,
         trailGeneration=e.trailGeneration,spawnRevision=e.spawnRevision,nodes=includeTrail~=false and nodes or nil,
         trailCells=includeTrail~=false and table.clone(e.trailCells) or nil}

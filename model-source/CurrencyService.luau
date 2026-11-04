@@ -1,6 +1,7 @@
 -- Server wallet. Clients cannot submit amounts or roll rewards.
 -- Cumulative session receipts make retries and concurrent additive saves idempotent.
 local Currency={};Currency.__index=Currency
+local Catalog=require(script.Parent.LoadoutCatalog)
 local LIMIT=2147483647
 local function amount(n)
     if type(n)~="number" or n~=n or n==math.huge or n==-math.huge then return 0 end
@@ -8,7 +9,7 @@ local function amount(n)
 end
 local function record(old)
     old=type(old)=="table" and old or {}
-    return {version=1,coins=amount(old.coins),gems=amount(old.gems),lastGem=amount(old.lastGem),
+    return {version=2,coins=amount(old.coins),gems=amount(old.gems),lastGem=amount(old.lastGem),inventory=Catalog.Normalize(old.inventory),
         sessions=type(old.sessions)=="table" and table.clone(old.sessions) or {}}
 end
 function Currency.new(cfg,notify,deps)
@@ -26,7 +27,7 @@ end
 function Currency:Publish(player,reward)
     local e=self.entries[player];if not e then return end
     self.notify(player,{kind="wallet",coins=e.coins,gems=e.gems,loaded=e.loaded,
-        persistent=self.store~=nil,saving=e.failed==true,deltaCoins=reward and reward.coins or 0,
+        persistent=self.store~=nil,saving=e.failed==true,inventory=Catalog.Normalize(e.inventory),deltaCoins=reward and reward.coins or 0,
         deltaGems=reward and reward.gems or 0,reason=reward and reward.reason or nil})
 end
 function Currency:Add(player)
@@ -34,7 +35,7 @@ function Currency:Add(player)
     self.joinSerial+=1
     local e={coins=0,gems=0,earnedCoins=0,earnedGems=0,savedCoins=0,savedGems=0,
         loaded=not self.store,failed=false,busy=false,lastGem=-math.huge,active=true,
-        session=self.session..":"..self.joinSerial}
+        session=self.session..":"..self.joinSerial,inventory=Catalog.Normalize(nil)}
     self.entries[player]=e;self:Publish(player)
     if self.store then self.spawn(function() self:Save(player) end) end
 end
@@ -63,7 +64,26 @@ end
 function Currency:Kill(player)
     self:Grant(player,self.cfg.CurrencyKillCoins or 25,self:Gem(player,self.cfg.CurrencyKillGemChance or .05),"kill")
 end
-function Currency:Save(player)
+function Currency:Loadout(player)
+    local e=self.entries[player]
+    return Catalog.Normalize(e and e.inventory)
+end
+function Currency:Action(player,action,id)
+    local e=self.entries[player]
+    if not e or not e.active or not e.loaded then return false,"Wallet is still loading" end
+    if e.busy then return false,"Saving your wallet; try again shortly" end
+    local operation={action=action,id=id}
+    if not self.store then
+        local data={coins=e.coins,gems=e.gems,inventory=Catalog.Normalize(e.inventory)}
+        local accepted,reason=Catalog.Apply(data,operation,self.cfg)
+        e.coins=data.coins;e.gems=data.gems;e.inventory=data.inventory
+        self:Publish(player);return accepted,reason
+    end
+    local saved=self:Save(player,operation)
+    if not saved then return false,"Purchase pending; retry to check ownership" end
+    return operation.accepted,operation.reason
+end
+function Currency:Save(player,operation)
     local e=self.entries[player];if not e then return true end
     if not self.store then return true end
     if e.busy then return false end
@@ -82,6 +102,7 @@ function Currency:Save(player)
                 data.gems=math.min(LIMIT,data.gems+math.max(0,gems-oldGems))
                 data.lastGem=math.max(data.lastGem,lastGem)
                 data.sessions[session]={coins=math.max(coins,oldCoins),gems=math.max(gems,oldGems),time=timestamp}
+                if operation then operation.accepted,operation.reason=Catalog.Apply(data,operation,self.cfg) end
                 -- Active sessions refresh every minute. Only long-expired receipts are pruned.
                 for key,receipt in pairs(data.sessions) do
                     if key~=session and type(receipt)=="table" and type(receipt.time)=="number"
@@ -97,6 +118,7 @@ function Currency:Save(player)
     e.busy=false;e.failed=not ok
     if ok then
         e.loaded=true;e.savedCoins=coins;e.savedGems=gems
+        e.inventory=Catalog.Normalize(result.inventory)
         e.lastGem=math.max(e.lastGem,amount(result.lastGem))
         e.coins=math.min(LIMIT,amount(result.coins)+e.earnedCoins-coins)
         e.gems=math.min(LIMIT,amount(result.gems)+e.earnedGems-gems)

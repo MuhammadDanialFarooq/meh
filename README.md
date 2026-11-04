@@ -1,24 +1,24 @@
-# Paintland V42 — Coins, Gems, Splash and Dash
+# Paintland V43 — equipped abilities, charge rings and kill trails
 
 Paintland keeps its territory game loop: leave your land, close a loop to claim
 cells, and cut an exposed rival trail. This build moves shared modules into
 **ReplicatedStorage**, adds a server-authoritative multiplayer path, and updates
-the menu, revive, results, character and capture-audio presentation. V42 adds
-server-awarded Coins and rare Gems, persistent wallets, and separate Splash and
-Dash ability modules with keyboard, gamepad and touch controls.
+the menu, revive, results, character and capture-audio presentation. V43 keeps Coins and rare Gems and adds a persistent loadout shop, one equipped
+ability, charge earned from captures and kills, character-color charge rings and
+READY billboards, Spacebar/double-tap controls, and following kill-block effects.
 
 The original supplied V26 model remains unchanged in `models/`. Editable code is
 in `model-source/`. Generated builds are:
 
-- `dist/Paintland_v42.rbxlx` — a complete place to open directly in Roblox Studio.
-- `dist/Paintland_v42.rbxmx` — a service-organized installation folder for an existing place.
-- `dist/Paintland_v42_beta.zip` — both builds, source, tools, tests and this README.
+- `dist/Paintland_v43.rbxlx` — a complete place to open directly in Roblox Studio.
+- `dist/Paintland_v43.rbxmx` — a service-organized installation folder for an existing place.
+- `dist/Paintland_v43_beta.zip` — both builds, source, tools, tests and this README.
 
 ## Install in Roblox Studio
 
 ### Open the complete place
 
-Open `Paintland_v42.rbxlx` with **File > Open from File**. The client bootstrap,
+Open `Paintland_v43.rbxlx` with **File > Open from File**. The client bootstrap,
 server bootstrap and shared modules are already placed in their services. Use
 Studio's **Test > Start Server** with at least two players to exercise multiplayer.
 An ordinary solo Play session cannot establish two-client synchronization.
@@ -29,19 +29,19 @@ An ordinary solo Play session cannot establish two-client synchronization.
 2. Remove the previous Paintland client bootstrap/folder from
    **StarterPlayer > StarterPlayerScripts**. Remove an older `PaintlandModules`
    or `PaintlandServer` installation if present. Do not leave duplicate bootstraps.
-3. Insert `Paintland_v42.rbxmx` into Workspace using **Insert from File**.
-4. Move `PaintlandV42 > ReplicatedStorage > PaintlandModules` into the real
+3. Insert `Paintland_v43.rbxmx` into Workspace using **Insert from File**.
+4. Move `PaintlandV43 > ReplicatedStorage > PaintlandModules` into the real
    **ReplicatedStorage** service.
-5. Move `PaintlandV42 > StarterPlayerScripts > PaintlandClient` into
+5. Move `PaintlandV43 > StarterPlayerScripts > PaintlandClient` into
    **StarterPlayer > StarterPlayerScripts**. This is a LocalScript.
-6. Move `PaintlandV42 > ServerScriptService > PaintlandServer` into the real
+6. Move `PaintlandV43 > ServerScriptService > PaintlandServer` into the real
    **ServerScriptService**. This is a server Script.
-7. Delete the now-empty `PaintlandV42` installation folder. Start a server test
+7. Delete the now-empty `PaintlandV43` installation folder. Start a server test
    and inspect **View > Output** on both server and clients.
 
 The outer folders in the import model are installation labels, not Roblox
 services. Leaving them in Workspace will not install the game. A client-only
-V40 installation is insufficient for V42 multiplayer. The server bootstrap
+V40 installation is insufficient for V43 multiplayer. The server bootstrap
 sets `Players.CharacterAutoLoads=false`, because Paintland renders its own arena
 actors rather than using normal Humanoids; account for that if combining it with
 another game's avatar system.
@@ -65,6 +65,11 @@ ReplicatedStorage
     AbilityRegistry
     AbilityService
     AbilityHUD
+    AbilityInput
+    AbilityIndicator
+    LoadoutCatalog
+    LoadoutMenu
+    KillBlockTrail
     ...other shared modules
 StarterPlayer
   StarterPlayerScripts
@@ -131,8 +136,8 @@ an abrupt server loss can lose rewards earned since the last successful save.
 Studio uses **temporary test wallets by default**, marked `TEST`. To test saving,
 use a separate published test experience with Studio API access enabled, set
 `CurrencyPersistInStudio=true`, and use a separate test DataStore name. Live saving
-is enabled by default. Local practice mode (`MultiplayerEnabled=false`) does not
-award persistent currency. No shop or currency purchases are included in V42.
+is enabled by default. Local practice mode (`MultiplayerEnabled=false`) uses a temporary wallet and
+loadout for that client session. The shop spends earned Coins or Gems, not Robux.
 
 All economy settings are in `ReplicatedStorage > PaintlandModules > Config`:
 
@@ -150,48 +155,103 @@ Config.CurrencyKillGemChance = 0.05
 Config.CurrencyGemCooldownSeconds = 60
 ```
 
-## Modular abilities
+## One equipped ability and the loadout shop
 
-Both abilities start unlocked and cost no currency:
+Open **LOADOUT** on the main menu. Players have exactly one ability slot. Abilities
+must be purchased separately or included with the currently equipped, owned
+character. The classic Slime is free and starts without an ability. Colors remain
+independent of character/ability ownership.
 
-| Module | Effect | Controls | Cooldown |
-| --- | --- | --- | --- |
-| `Splash` | Claim a circle within 6 cells of the character, starting from owned land with no exposed trail | Q / gamepad X / touch Splash | 18 seconds |
-| `Dash` | Move at 2.25 times normal speed for 0.65 seconds, retaining ordinary trails, collisions and arena bounds | E / gamepad Y / touch Dash | 8 seconds |
+| Item | Default price | Entitlement |
+| --- | --- | --- |
+| Dash ability | 250 Coins | Equip Dash with any character |
+| Splash ability | 400 Coins | Equip Splash with any character |
+| Runner character | 500 Coins | Cap cosmetic and Dash while Runner is equipped |
+| Splashling character | 8 Gems | Crown cosmetic and Splash while Splashling is equipped |
 
-Splash follows the existing covered-head and territory-split rules, so an opponent
-caught in its newly claimed tiles can be eliminated. A Splash that cannot claim
-new cells consumes no cooldown. Dash follows continuous movement; it never sets
-a new position to skip the space between two points. Its expiry accounts for the
-boosted fraction of a frame. Death cancels the boost, while a revive retains the
-remaining ability cooldown. A new round or a different player occupying a slot
-starts with fresh cooldowns.
+Buying also equips the selected item. Selecting another ability replaces the
+slot; the two abilities cannot be activated together. Switching away from a
+character removes access to its included ability unless that ability was also
+purchased separately. The equipped slot stays fixed during a running round.
+**Unequip Ability** clears the slot. Character ownership, purchased abilities,
+selected character and selected ability persist with the wallet.
 
-`AbilityService` validates the server-owned actor, match state, registered ID and
-cooldown. The client sends only the ability ID through a separately rate-limited
-remote. Accepted effects are shown to all room members, and snapshots correct the
-local Dash prediction and cooldown display. `AbilityHUD` handles centered touch
-buttons, keyboard/gamepad shortcuts, pending feedback and countdowns. Chat and
-text-entry input do not activate abilities. Abilities also work in local practice.
+The server checks catalog prices and ownership, then deducts currency and grants
+ownership in a single DataStore UpdateAsync. Ownership acts as the purchase
+receipt, so a retried buy after an ambiguous response does not charge twice.
+Autosaves preserve concurrent purchases and never restore spent currency from a
+stale client/session balance. Failed purchases stay unconfirmed until the server
+can read a successful result. Existing V42 balances migrate without resetting
+Coins or Gems; V42 had no purchased ability inventory to migrate.
+
+## Charge, ring and controls
+
+Abilities have **no passive cooldown recharge**. A new life starts at 0 / 100
+charge. Gain **20 charge per percentage point captured** and **35 per valid
+kill**, up to 100. For example, a 0.5-point capture adds 10 charge; a kill adds
+35. Captures with zero gain, duplicate kills and delayed land inheritance do not
+add charge. Using an ability consumes the full charge. A rejected/no-op Splash
+retains charge. Claims and kills caused during Splash activation award normal
+currency but do not refill the ability that caused them. Death clears charge.
+
+A thin ring follows the character on the arena floor. Its fill tweens between
+server-confirmed charge values over 0.28 seconds. The overhead billboard shows,
+for example, **DASH · 65 TO GO**, then **READY · DASH** when full. Both use that
+character's actual paint color. READY has a restrained pulse; ReducedMotion
+shows the correct final fill without tweening or pulsing. Unequipped characters
+have no charge indicator. All clients receive other players' equipped ability
+and charge, so their indicators also follow the correct state.
+
+- **Keyboard:** Spacebar activates the one equipped, fully charged ability.
+- **Phone/tablet:** two short taps in the play area activate it. Steering drags,
+  UI touches, slow taps, multitouch gestures and focused text entry are ignored.
+- **Gamepad:** right trigger activates the same equipped slot.
+
+The two old ability buttons and Q/E bindings have been removed. A small gameplay
+hint explains activation or charge earning; the ring remains attached to the
+character. Splash claims a circle within 6 cells when standing on owned land
+without an exposed trail. Dash gives 2.25x movement speed for 0.65 seconds while
+retaining swept trail collisions and the arena boundary.
 
 ```lua
-Config.AbilitiesEnabled = true
+Config.AbilityPrices = {Dash={Coins=250}, Splash={Coins=400}}
+Config.CharacterPrices = {Runner={Coins=500}, Splashling={Gems=8}}
+Config.AbilityChargeRequired = 100
+Config.AbilityChargePerPercent = 20
+Config.AbilityChargePerKill = 35
+Config.AbilityRingTweenSeconds = 0.28
+Config.AbilityDoubleTapSeconds = 0.3
+Config.AbilityTapMaxMovement = 18
 Config.SplashRadiusCells = 6
-Config.SplashCooldownSeconds = 18
 Config.DashDurationSeconds = 0.65
 Config.DashSpeedMultiplier = 2.25
-Config.DashCooldownSeconds = 8
 ```
 
-To add another ability, create a ModuleScript next to `Splash` and `Dash`, then
-add its `require(script.Parent.YourAbility)` to `AbilityRegistry.List`. Provide
-`Id`, `Name`, `Key`, `Gamepad`, `Color`, `Cooldown(config)` and
-`Activate(world, actor, config)`. Activation returns `true, effectData` on success
-or `false, reason` when unavailable. Keep authoritative gameplay changes inside
-the module's server activation; put additional presentation in
-`ArcadeEffects:Ability`. The registry supplies the HUD buttons and server lookup.
-Do not trust extra fields in a client request. Larger future loadouts should also
-be checked against the compact HUD layouts before release.
+## Kill block trails and module extension
+
+On a valid kill, seven small blocks start at the victim, catch up to the killer,
+follow their recent movement as a short chain, and absorb into them. They begin
+in the defeated player's color and blend toward the killer's paint. These are
+cosmetic anchored parts: they never move players, award extra currency/charge,
+or change collision/territory. A reusable pool is capped at 48 parts per client.
+The effect clears when the killer dies, respawns, changes identity/slot, or a new
+world starts. ReducedMotion suppresses it.
+
+```lua
+Config.KillBlockTrailEnabled = true
+Config.KillBlockTrailMaxParts = 48
+Config.KillBlockTrailDuration = 2.4
+```
+
+`Splash` and `Dash` remain separate ModuleScripts in
+`ReplicatedStorage > PaintlandModules`. To add an ability, create a module with
+`Id`, `Name`, `Color` and `Activate(world, actor, config)`; register it in
+`AbilityRegistry.List` and add its price to `Config.AbilityPrices`, or associate
+it with an owned character in `LoadoutCatalog`. Activation returns `true,
+effectData` or `false, reason`. `AbilityService` owns the single slot and charge;
+`AbilityInput` owns gestures; `AbilityIndicator` owns the ring/billboard;
+`LoadoutMenu` owns shop presentation; `KillBlockTrail` owns following blocks.
+The server remains authoritative even though these modules are replicated.
 
 ## Visual direction and references
 
@@ -308,13 +368,15 @@ both clients and the server for warnings. Tests that deliberately throw an
 `intentional VFX failure` verify effect isolation; those warnings are expected
 only during that regression scenario.
 
-V42 passed the official Luau compile, embedded-source checks, and headless
-regressions including nine HUD sizes, capture/kill rewards, rare-drop cooldowns,
-concurrent saves, retry-after-commit, same-server rejoin, failed-load recovery,
-Splash/Dash rules, swept trail collisions, forged requests, and real module
-transport callbacks with doubles. These checks do not connect to live DataStore,
-MemoryStore or TeleportService. Test saved wallet reconnects, capture/kill rewards,
-ability cooldowns and touch controls in a published test experience.
+V43 passed the official Luau compile, embedded-source checks, and headless
+regressions for the existing game plus atomic purchases, purchase retries,
+concurrent sessions, character entitlements, one equipped slot, capture/kill
+charge, no passive/self recharge, Spacebar and double-tap gesture rejection,
+ring tween targets/cleanup, and bounded kill-block following/cleanup. UI layout
+arithmetic is checked on desktop, portrait and landscape viewports. These tests
+do not emulate Roblox rendering, live DataStore, MemoryStore or TeleportService.
 
-V42 is an integration build requiring those Studio/published tests.
+Before release, verify shop purchases/rejoin in a published test experience,
+actual touchscreen double taps while steering, character-color ring visibility,
+READY billboard readability, block trails, and two-client charge synchronization.
 A successful compile or headless run does not establish a lag-free live release.

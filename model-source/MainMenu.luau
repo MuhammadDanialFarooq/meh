@@ -126,14 +126,15 @@ function Menu.new(parent,cfg,onSkin,onPlay,onRooms)
     self.help.FontFace=Fonts.Regular;self.help.TextWrapped=true
     self.help.Position=UDim2.fromOffset(16,201);self.help.Size=UDim2.new(1,-32,0,42)
     self.roomButtons={}
-    if onRooms and cfg.MultiplayerEnabled~=false then
+    if onRooms then
         self.help.Visible=false
-        for i,action in ipairs({"create","join"}) do
-            local b=make(self.panel,"TextButton",action=="create" and "CreateRoom" or "JoinRoom",{
-                AnchorPoint=Vector2.new(.5,.5),Size=UDim2.new(.5,-24,0,44),
-                Position=UDim2.new(i==1 and .25 or .75,i==1 and 4 or -4,0,222),
+        local actions=cfg.MultiplayerEnabled==false and {"loadout"} or {"create","join","loadout"}
+        for i,action in ipairs(actions) do
+            local b=make(self.panel,"TextButton",action=="create" and "CreateRoom" or (action=="join" and "JoinRoom" or "Loadout"),{
+                AnchorPoint=Vector2.new(.5,.5),Size=UDim2.new(1/#actions,-14,0,44),
+                Position=UDim2.new((i-.5)/#actions,0,0,222),
                 BackgroundColor3=i==1 and Color3.fromRGB(151,211,255) or Color3.fromRGB(202,176,255),
-                Text=i==1 and "CREATE ROOM" or "JOIN ROOM",FontFace=Fonts.Bold,TextSize=11,
+                Text=action=="create" and "CREATE ROOM" or (action=="join" and "JOIN ROOM" or "LOADOUT"),FontFace=Fonts.Bold,TextSize=10,
                 TextColor3=INK,AutoButtonColor=false,BorderSizePixel=0,Active=true,Selectable=true,ZIndex=46})
             round(b,13);stroke(b,INK,2);ButtonEffects.Bind(b,cfg)
             b.Activated:Connect(function() if self.visible then onRooms(action) end end)

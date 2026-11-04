@@ -20,7 +20,7 @@ function MultiplayerWorld:AddPlayer(id,userId,name,colorIndex)
     e.userId=userId;e.name=name;e.color=self.cfg.Colors[colorIndex] or self.cfg.Colors[(id-1)%#self.cfg.Colors+1]
     e.darkColor=Color3.new(e.color.R*.79,e.color.G*.79,e.color.B*.79)
     e.connected=true;e.isHuman=true;e.kills=0;e.killStreak=0;e.bestKillStreak=0
-    e.abilityReadyAt={};e.dashRemaining=0;e.dashMultiplier=1
+    e.equippedAbility="";e.abilityCharge=0;e.characterId="Slime";e.dashRemaining=0;e.dashMultiplier=1
     if not self:Spawn(e) then e.connected=false;e.respawnAt=math.huge;return false end
     return true
 end

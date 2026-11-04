@@ -28,6 +28,8 @@ local AudioController = require(Modules.AudioController)
 local MenuDemo = require(Modules.MenuDemo)
 local MultiplayerClient = require(Modules.MultiplayerClient)
 local AbilityService = require(Modules.AbilityService)
+local CurrencyService = require(Modules.CurrencyService)
+local KillBlockTrail = require(Modules.KillBlockTrail)
 local MatchmakingUI = require(Modules.MatchmakingUI)
 
 local Loader = {}
@@ -49,6 +51,7 @@ function Loader.Start()
     local killFeedback = KillFeedback.new(renderer.screen, Config)
     local mergeEffects = LandMergeEffects.new(renderer, Config)
     local arcadeEffects = ArcadeEffects.new(renderer, Config)
+    local killBlocks = KillBlockTrail.new(renderer, Config)
     local motionEffects = MotionEffects.new(renderer, Config)
     local toyFX = ToyWorldFX.new(renderer, Config)
     local expandCombo = ExpandComboController.new(renderer.screen, Config)
@@ -60,12 +63,19 @@ function Loader.Start()
     local hudTimer = 0
     local ui, revive, victory, network, matchmaking
     local practiceAbilities=AbilityService.new(Config)
+    local practiceWallet
+    if Config.MultiplayerEnabled==false then
+        local temporary=table.clone(Config);temporary.CurrencyPersistenceEnabled=false
+        practiceWallet=CurrencyService.new(temporary,function(_,data) if ui then ui:SetWallet(data) end end)
+        practiceWallet:Add(localPlayer)
+    end
     local victoryFX = VictoryWorldFX.new(renderer, Config)
     local newMatch, startMenu
     local function clearPresentation()
         victoryFX:Clear();particles:Clear();mergeEffects:Clear();audio:Reset()
         killFeedback:Reset();arcadeEffects:Clear();motionEffects:Clear();toyFX:Clear()
         expandCombo:Reset();territoryVFX:Clear()
+        killBlocks:Clear()
     end
     local demo=MenuDemo.new(Config,renderer,{
         onReset=clearPresentation,
@@ -129,6 +139,8 @@ function Loader.Start()
                 end
             end,
             onCapture = function(entity, count, changedCells)
+                practiceAbilities:Capture(entity,count,world.grid.playableTotal)
+                if entity.isHuman and practiceWallet then practiceWallet:Capture(localPlayer,count,world.grid.playableTotal) end
                 if entity.isHuman then audio:Capture(count, world.grid.playableTotal) end
                 renderer:ClearTrail(entity.id)
                 if count > 0 then
@@ -194,10 +206,13 @@ function Loader.Start()
                 if victim.isHuman then ui:RecordDefeat(world) end
                 if killer and killer.isHuman and killer ~= victim and killer.alive then
                     audio:Kill(killer.killStreak)
+                    practiceAbilities:Kill(killer)
+                    if practiceWallet then practiceWallet:Kill(localPlayer) end
                 end
                 if victim.isHuman then audio:Death() end
                 arcadeEffects:Elimination(victim, killer, hit)
                 toyFX:Elimination(victim, killer, hit)
+                killBlocks:Emit(victim,killer,hit)
                 renderer:RemoveEntityVisual(victim.id)
                 if killer and killer.isHuman and killer ~= victim and killer.alive then
                     killFeedback:OnKill(victim, killer)
@@ -216,6 +231,11 @@ function Loader.Start()
         world = nextWorld
         renderer:SetWorld(world)
         world:Start(localPlayer.DisplayName, skin)
+        local loadout=practiceWallet and practiceWallet:Loadout(localPlayer)
+        if loadout then
+            world.entities[1].characterId=loadout.character;practiceAbilities:Equip(world.entities[1],loadout.equipped)
+            ui:SetAbilityState(practiceAbilities:State(world,world.entities[1]))
+        end
         ui.minimap:SetWorld(world)
         nameService:Assign(world)
         ui:SetMode("playing")
@@ -260,9 +280,17 @@ function Loader.Start()
             else
                 local actor=world.entities[1]
                 local accepted,result=practiceAbilities:Use(world,actor,id,true)
-                ui:SetAbilityState({id=id,accepted=accepted,reason=not accepted and result or nil,
-                    cooldowns=practiceAbilities:State(world,actor)})
+                local state=practiceAbilities:State(world,actor)
+                state.id=id;state.accepted=accepted;state.reason=not accepted and result or nil
+                ui:SetAbilityState(state)
                 if accepted then arcadeEffects:Ability(id,actor,result) end
+            end
+        end,
+        onLoadout=function(action,id)
+            if network then network:Command("loadout",{operation=action,product=id})
+            elseif practiceWallet then
+                local accepted,reason=practiceWallet:Action(localPlayer,action,id)
+                ui.loadout:Result(accepted,reason)
             end
         end,
         onSoundToggle = function(muted) audio:SetMuted(muted) end,
@@ -286,6 +314,7 @@ function Loader.Start()
             end
         end,
     })
+    if practiceWallet then practiceWallet:Publish(localPlayer) end
     victory = VictoryController.new(renderer.screen, Config, function()
         newMatch(ui.skin)
     end)
@@ -320,6 +349,7 @@ function Loader.Start()
         end
         network=MultiplayerClient.new(Config,{
             onWallet=function(wallet) ui:SetWallet(wallet) end,
+            onLoadoutResult=function(data) ui.loadout:Result(data.accepted,data.message) end,
             onAbilityState=function(state) ui:SetAbilityState(state) end,
             onAbility=function(id,actorId,effect)
                 arcadeEffects:Ability(id,world and world.entities[actorId],effect)
@@ -366,9 +396,10 @@ function Loader.Start()
                     camera:CapturePulse(world.entities[1].heading,count)
                 end
             end,
-            onElimination=function(victimId,killerId)
+            onElimination=function(victimId,killerId,_,event)
                 local victim=world and world.entities[victimId]
                 local killer=world and killerId and world.entities[killerId]
+                killBlocks:Emit(victim,killer,event and event.x and {position=Vector2.new(event.x,event.y)} or nil)
                 if victim then renderer:RemoveEntityVisual(victimId) end
                 if killerId==1 and victimId~=1 and killer then
                     audio:Kill((killer.killStreak or 0)+1);killFeedback:OnKill(victim,killer)
@@ -425,6 +456,7 @@ function Loader.Start()
         toyFX:Update(realDt)
         renderer:Render(camera.position, realDt)
         arcadeEffects:Update(realDt, camera.position)
+        killBlocks:Update(realDt)
         motionEffects:Update(realDt, world and world.entities[1] or nil,
             camera.position, running and not frozenForRevive)
         if not frozenForRevive then
@@ -445,7 +477,7 @@ function Loader.Start()
         audio:Update(realDt)
         ui:UpdatePresentation(realDt)
         if not network and running and world and world.entities[1] then
-            ui:SetAbilityState({cooldowns=practiceAbilities:State(world,world.entities[1])})
+            ui:SetAbilityState(practiceAbilities:State(world,world.entities[1]))
         end
         if world and not demo.active then
             -- Diagnostic only when near completion. Actual completion is
@@ -471,7 +503,7 @@ function Loader.Start()
             end
         end
     end)
-    return {Network=network,Matchmaking=matchmaking,MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
+    return {Network=network,Matchmaking=matchmaking,KillBlockTrail=killBlocks,MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
         Particles = particles, Camera = camera, KillFeedback = killFeedback,
         LandMergeEffects = mergeEffects, ArcadeEffects = arcadeEffects, MotionEffects = motionEffects,
         ExpandCombo = expandCombo, TerritoryVFX = territoryVFX, Cosmetics = CosmeticController,
