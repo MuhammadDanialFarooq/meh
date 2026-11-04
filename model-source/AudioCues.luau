@@ -25,4 +25,14 @@ function Cues.Capture(cfg, count, playableTotal)
     return id, pitch, tier
 end
 
+-- Positive net percentage-point gain determines the number of reward notes.
+-- 0.5 points -> 5, 1.0 -> 13 (rounded), 1.5 or more -> 20.
+function Cues.CaptureRepeats(count, playableTotal)
+    if type(count)~="number" or type(playableTotal)~="number"
+        or count~=count or playableTotal~=playableTotal or count<=0 or playableTotal<=0
+        or count==math.huge or playableTotal==math.huge then return 0 end
+    local gain=count/playableTotal*100
+    return math.floor(5+15*math.clamp((gain-.5),0,1)+.5)
+end
+
 return Cues

@@ -1,322 +1,320 @@
-# Paintland V37 beta — preserve mainland after territory cuts
+# Paintland V42 — Coins, Gems, Splash and Dash
 
-A targeted repair of the supplied PaintlandClient V26 Roblox model. The original
-upload is retained unchanged in `models/`; editable Luau sources are in
-`model-source/`. The importable result is `dist/PaintlandClient_v37.rbxmx`.
+Paintland keeps its territory game loop: leave your land, close a loop to claim
+cells, and cut an exposed rival trail. This build moves shared modules into
+**ReplicatedStorage**, adds a server-authoritative multiplayer path, and updates
+the menu, revive, results, character and capture-audio presentation. V42 adds
+server-awarded Coins and rare Gems, persistent wallets, and separate Splash and
+Dash ability modules with keyboard, gamepad and touch controls.
+
+The original supplied V26 model remains unchanged in `models/`. Editable code is
+in `model-source/`. Generated builds are:
+
+- `dist/Paintland_v42.rbxlx` — a complete place to open directly in Roblox Studio.
+- `dist/Paintland_v42.rbxmx` — a service-organized installation folder for an existing place.
+- `dist/Paintland_v42_beta.zip` — both builds, source, tools, tests and this README.
 
 ## Install in Roblox Studio
 
-1. Save a backup of your place. Stop the play session.
-2. Remove the previous **PaintlandClient** folder from **StarterPlayer > StarterPlayerScripts** to prevent duplicate bootstraps.
-3. Insert `dist/PaintlandClient_v37.rbxmx` there using Explorer's **Insert from File**. Keep its `Paintland` LocalScript and `PaintlandModules` folder together under `PaintlandClient`.
-4. Press Play and check **View > Output**. Studio regression tests are enabled by `Config.RunVictoryRegressionTests`. They run isolated test worlds before the game starts. Two warnings containing `intentional VFX failure` are expected from the error-isolation test; other failures need investigation.
-5. Check a normal loop, a large enclosure, a loop along the wall, simultaneous bot captures, a self-trail death, revive/replay, and reaching 100%. Use Device Emulator to check portrait/landscape layouts and touch steering. Check the minimap during captures and after resizing.
+### Open the complete place
 
-## V37 preserve the mainland after cuts
+Open `Paintland_v42.rbxlx` with **File > Open from File**. The client bootstrap,
+server bootstrap and shared modules are already placed in their services. Use
+Studio's **Test > Start Server** with at least two players to exercise multiplayer.
+An ordinary solo Play session cannot establish two-client synchronization.
 
-Connectivity cleanup no longer chooses the territory closest to the head. That
-rule could retain a tiny sliver and erase the much larger mainland after a cut.
-Cleanup now keeps the **largest four-connected owned component**. Head position
-only breaks equal-size ties. A second owned bridge keeps both sides in the same
-component, so neither side is removed just because the first bridge was cut.
+### Add to an existing place
 
-Only genuinely disconnected smaller pieces become neutral. Actual enemy-captured
-cells are not restored, and a path painted by another owner is not treated as
-your connection. This rule applies through the shared capture/join loser cleanup;
-the winner is still never pruned during its own capture or join.
+1. Save a backup and stop the play session.
+2. Remove the previous Paintland client bootstrap/folder from
+   **StarterPlayer > StarterPlayerScripts**. Remove an older `PaintlandModules`
+   or `PaintlandServer` installation if present. Do not leave duplicate bootstraps.
+3. Insert `Paintland_v42.rbxmx` into Workspace using **Insert from File**.
+4. Move `PaintlandV42 > ReplicatedStorage > PaintlandModules` into the real
+   **ReplicatedStorage** service.
+5. Move `PaintlandV42 > StarterPlayerScripts > PaintlandClient` into
+   **StarterPlayer > StarterPlayerScripts**. This is a LocalScript.
+6. Move `PaintlandV42 > ServerScriptService > PaintlandServer` into the real
+   **ServerScriptService**. This is a server Script.
+7. Delete the now-empty `PaintlandV42` installation folder. Start a server test
+   and inspect **View > Output** on both server and clients.
 
-The new tests reproduce the V36 loss, check a head on a tiny fragment and a head
-outside land, verify a second owned bridge, check equal-size ties and run the
-actual World loser-cleanup path. Existing crossing joins, captures, victory,
-revive/defeat UI, menu demo and effect checks pass. Verify the reported cut in
-Studio; the tests establish ownership behavior, not engine rendering.
+The outer folders in the import model are installation labels, not Roblox
+services. Leaving them in Workspace will not install the game. A client-only
+V40 installation is insufficient for V42 multiplayer. The server bootstrap
+sets `Players.CharacterAutoLoads=false`, because Paintland renders its own arena
+actors rather than using normal Humanoids; account for that if combining it with
+another game's avatar system.
 
-## V36 crossing joins
+The installed structure is:
 
-Trail joins now claim the recorded bridge even where it passes through another
-owner's territory. The previous version explicitly blocked those cells, leaving
-inherited land detached and vulnerable to later connectivity pruning. Only the
-actual trail/contact route can cross rival land; no unrelated shortcut is carved.
+```text
+ReplicatedStorage
+  PaintlandModules
+    Config
+    GameLoader
+    MultiplayerServer
+    MultiplayerClient
+    MultiplayerWorld
+    NetworkProtocol
+    Matchmaking
+    CurrencyService
+    WalletHUD
+    Splash
+    Dash
+    AbilityRegistry
+    AbilityService
+    AbilityHUD
+    ...other shared modules
+StarterPlayer
+  StarterPlayerScripts
+    PaintlandClient (LocalScript)
+ServerScriptService
+  PaintlandServer (Script)
+```
 
-Both sides of the join use this rule: the winner's active trail and the defeated
-trail back to its territory. Third-party heads covered by the bridge, or rivals
-left with no land, are eliminated consistently with normal closed-loop captures.
-Surviving crossed owners retain their largest connected fragment (the V37 rule). The winner is not pruned as part of its own join.
+## Multiplayer and matchmaking
 
-Regression tests reproduce the V35 failure, verify four-connected joins through
-rival territory on either trail, run later connectivity cleanup to ensure the
-inherited area stays connected, and check covered-head/last-tile eliminations,
-loser fragment cleanup and counts. The full existing gameplay, menu and effect
-tests also pass. Verify the same crossing in Studio; a later genuine enemy cut
-through the bridge can still split territory under the normal game rules.
+The multiplayer server owns movement, collisions, territory, eliminations,
+revive grants and completion. Clients send heading/input sequence and lobby
+intent; they do not submit trusted positions, ownership or scores. The client
+uses local movement prediction and smooth correction, with interpolation for
+remote actors. This reduces visible jitter within a match; it cannot eliminate
+network delay or promise identical behavior under every connection condition.
 
-## V35 live main-menu backdrop
+**Quick Play** joins an available public match. **Create Room** makes a private
+room with a shareable code; friends use **Join Room** and the host starts the
+match. The server maintains room membership, capacity and host ownership.
+Private rooms and public matchmaking use MemoryStore directory entries in
+published experiences. Joining a room hosted on another Roblox server uses
+TeleportService and therefore includes Roblox's normal server-loading transition.
+That transition is separate from continuous arena movement.
 
-Opening the game or returning to Main Menu starts an independent, silent
-bot-only match behind the translucent menu. Eight bots move, draw trails, capture
-land, eliminate each other and respawn using the actual game simulation. The
-camera gently follows a bot and periodically changes targets; a dead target is
-replaced. The background resets after 55 seconds or completion so the menu does
-not settle into an empty/end-state arena.
+Studio room tests remain local to the Studio server. Cross-server discovery,
+MemoryStore permissions/quotas, TeleportService behavior and reconnect/error
+flows must be tested after publishing to an experience. These Roblox services
+are not emulated by the headless tests. Server-side validation also remains
+necessary even though module source is replicated for organization and reuse.
 
-Pressing Play stops the demo and creates a fresh human match. Demo ownership,
-stats, trails and effects do not carry over. It has no player input, audio reward,
-purchase/revive or gameplay HUD callbacks. The death screen still freezes the
-player's game until Play Again or Main Menu is selected. Returning to Main Menu
-then starts a new demo rather than resuming the dead player's round.
+Multiplayer revive options are server granted. The existing client-side
+advertisement/product prompts are not a replacement for developer-product
+receipt validation. Any monetized revive flow needs verified server receipt
+handlers before it is enabled in a live experience.
 
-Adjust `MenuDemoBots`, `MenuDemoRoundSeconds` and `MenuDemoFollowSeconds` in
-Config. No extra service, animation asset or background task is required. The
-existing render-step loop advances the demo and stops doing so on Play.
+## Coins and Gems
 
-Headless tests run demo movement/captures/respawns, dead-camera-target replacement,
-completion/timed resets and the stopped-demo-to-fresh-game handoff. They cannot
-verify the actual camera composition or device frame rates; check the main menu
-in Studio and on a phone, then Play, die, return to menu, and Play again.
+The server awards Coins for positive captures and valid eliminations. The wallet
+is visible in the menu and during play, with gold Coins, purple Gems and brief
+reward captions. It rearranges on narrow screens to avoid the minimap and ability
+buttons. Loading shows an ellipsis; failed saves display `SAVE PENDING`.
 
-## V34 clarified map size
+| Event | Coins | Chance of one Gem |
+| --- | --- | --- |
+| Positive capture | `5 + floor(percentage points gained * 10)` | 1% when the gain is at least 0.5 points |
+| Valid kill | 25 | 5% |
 
-The requested size increase applies to the **minimap**. It is now 190 pixels wide
-on desktop and 144 on phones (previously 142 and 108); short landscape displays
-use 96 instead of 76 to keep it clear of the rest of the HUD. Change
-`MinimapDesktopSize` and `MinimapPhoneSize` in Config to tune it.
+For example, gaining 0.5 percentage points awards 10 Coins; gaining 1.5 awards
+20 Coins. Splash gains use the same capture reward. Zero-gain captures, self
+eliminations and duplicate death callbacks give no reward. Land inherited after
+a kill does not produce a second capture reward. Gem drops share a 60-second
+cooldown across captures and kills; the last drop time is saved with the wallet.
+The client cannot supply reward amounts, percentages, balances or Gem rolls.
 
-The V33 arena/camera changes have been reverted: `Grid=112`,
-`WorldViewHeightStuds=124`, `MobileWorldViewHeight=144`. The reference-style death
-screen, image icons and Play Again/Main Menu actions remain. The renderer's
-phone-aware effect scaling correction is retained.
+Balances use Roblox DataStore `PaintlandWalletV1`, keyed by user ID. The server
+loads on join, saves every 60 seconds, saves before cross-server joins, retries on
+departure, and flushes on shutdown. UpdateAsync applies cumulative receipts per
+player join, preserving additive rewards across overlapping sessions and retries
+after an uncertain write. Failed loads keep rewards pending instead of overwriting
+saved balances with zero. Saving still depends on Roblox service availability;
+an abrupt server loss can lose rewards earned since the last successful save.
 
-## V33 death screen and arena scale
+Studio uses **temporary test wallets by default**, marked `TEST`. To test saving,
+use a separate published test experience with Studio API access enabled, set
+`CurrencyPersistInStudio=true`, and use a separate test DataStore name. Live saving
+is enabled by default. Local practice mode (`MultiplayerEnabled=false`) does not
+award persistent currency. No shop or currency purchases are included in V42.
 
-The death screen now follows the supplied layout: a red **OOF**, white
-**You conquered X% land** text, a green **PLAY AGAIN** button and a yellow
-**MAIN MENU** button. The frozen game remains visible through a translucent black
-overlay. There is no solid menu card or gradient on the death screen. Tile count
-and eliminations appear as smaller secondary text. Play Again starts a clean run
-with the selected color; Main Menu returns to color selection without starting.
-Buttons use ImageLabel icons from the common Material icon atlas. Optional
-`DefeatPlayIconId` and `DefeatMenuIconId` in Config replace them with full custom
-image assets (numbers or `rbxassetid://...` strings); cropping is removed for custom
-images. Those images must be accessible to the experience. Check them in Studio.
+All economy settings are in `ReplicatedStorage > PaintlandModules > Config`:
 
-The playable grid increases from 112 to 144 cells per side while retaining tile
-size and movement speed. This gives more arena space without inflating individual
-tiles. The camera is also closer: `WorldViewHeightStuds=112` on desktop and
-`MobileWorldViewHeight=124` on phones. A smaller view-height value zooms closer;
-`Grid` changes actual map size. Renderer effect scaling now uses the matching
-phone/desktop view height. The minimap panel size is unchanged.
+```lua
+Config.CurrencyPersistenceEnabled = true
+Config.CurrencyPersistInStudio = false
+Config.CurrencyDataStoreName = "PaintlandWalletV1"
+Config.CurrencyAutosaveSeconds = 60
+Config.CurrencyCaptureBaseCoins = 5
+Config.CurrencyCoinsPerPercent = 10
+Config.CurrencyKillCoins = 25
+Config.CurrencyGemMinCapturePercent = 0.5
+Config.CurrencyCaptureGemChance = 0.01
+Config.CurrencyKillGemChance = 0.05
+Config.CurrencyGemCooldownSeconds = 60
+```
 
-The larger arena increases the amount of grid work and should be checked on
-phones. Headless capture, minimap, join, victory and UI checks run with the new
-size; this does not establish device frame rates. Death-screen layout tests cover
-portrait/landscape bounds, separated actions, touch target size, preserved death
-stats, replay/menu routing, black tint and image-icon objects. A Studio visual
-playtest against the reference remains necessary.
+## Modular abilities
 
-## V32 reference-inspired effects
+Both abilities start unlocked and cost no currency:
 
-The uploaded 144p gameplay video was inspected using sampled frames and closer
-sequences around 39–45 seconds and 190–201 seconds. The reference shows short
-pale flashes over fresh paint, floating percentage gains and compact multikill
-announcements. This update adapts those cues to the existing Roblox presentation:
+| Module | Effect | Controls | Cooldown |
+| --- | --- | --- | --- |
+| `Splash` | Claim a circle within 6 cells of the character, starting from owned land with no exposed trail | Q / gamepad X / touch Splash | 18 seconds |
+| `Dash` | Move at 2.25 times normal speed for 0.65 seconds, retaining ordinary trails, collisions and arena bounds | E / gamepad Y / touch Dash | 8 seconds |
 
-- Captured territory gets a quicker pale-to-owner sweep and a floating `+x.xx%` reward.
-- Trail-cut eliminations burst at the collision contact, rather than the defeated character's distant head.
-- Absorbed land visibly transitions from victim color through pale white to winner color, spreading from the contact area. The overlay is now above the land surface; the old overlay was inside the land and could be hidden.
-- Kill announcements use `ELIMINATED`, `DOUBLE KILL`, `TRIPLE KILL`, `QUADRA KILL`, `ACE!`, then `UNSTOPPABLE!`. Multikills require kills within a configurable 3-second gap. Lifetime kill streaks, including the five audio tiers, remain separate.
-- Capture sparks, impact rings and motion dust now use the real tilted camera's projection, rather than the older flat 2D camera approximation.
-- Reduced-motion mode suppresses impact bursts and kill bounce, and uses a simple takeover color fade.
+Splash follows the existing covered-head and territory-split rules, so an opponent
+caught in its newly claimed tiles can be eliminated. A Splash that cannot claim
+new cells consumes no cooldown. Dash follows continuous movement; it never sets
+a new position to skip the space between two points. Its expiry accounts for the
+boosted fraction of a frame. Death cancels the boost, while a revive retains the
+remaining ability cooldown. A new round or a different player occupying a slot
+starts with fresh cooldowns.
 
-The large expanding circular paint mechanic in the clip has not been added as an
-ability. The changes above are presentation only: ownership, kill rules, joining,
-revives and defeat flow remain governed by the existing simulation. No sounds or
-artwork were extracted from the video; custom sound settings and muted defaults
-remain unchanged.
+`AbilityService` validates the server-owned actor, match state, registered ID and
+cooldown. The client sends only the ability ID through a separately rate-limited
+remote. Accepted effects are shown to all room members, and snapshots correct the
+local Dash prediction and cooldown display. `AbilityHUD` handles centered touch
+buttons, keyboard/gamepad shortcuts, pending feedback and countdowns. Chat and
+text-entry input do not activate abilities. Abilities also work in local practice.
 
-Effects settings are in **PaintlandModules > Config**: `KillComboWindowSeconds`,
-`KillPopupDuration`, `CaptureFlashDuration`, `CaptureWorldPopupDuration`,
-`TerritoryMergeDuration`, `TerritoryMergeWaveDelay`, and `ReducedMotion`.
+```lua
+Config.AbilitiesEnabled = true
+Config.SplashRadiusCells = 6
+Config.SplashCooldownSeconds = 18
+Config.DashDurationSeconds = 0.65
+Config.DashSpeedMultiplier = 2.25
+Config.DashCooldownSeconds = 8
+```
 
-In Studio, cut a trail far from the victim's head, check the burst stays at the
-cut as the camera moves, inspect a takeover color sweep, then make two quick
-kills and two widely spaced kills. Check reward text and effects on a phone.
-Automated controller tests cover origin selection, timed combos, projection calls,
-overlay height, recycling, object limits and reduced motion. They cannot prove
-pixel-level appearance or performance in Roblox. The low-resolution reference
-also limits small-detail comparisons; this is an adaptation, not an exact replica.
+To add another ability, create a ModuleScript next to `Splash` and `Dash`, then
+add its `require(script.Parent.YourAbility)` to `AbilityRegistry.List`. Provide
+`Id`, `Name`, `Key`, `Gamepad`, `Color`, `Cooldown(config)` and
+`Activate(world, actor, config)`. Activation returns `true, effectData` on success
+or `false, reason` when unavailable. Keep authoritative gameplay changes inside
+the module's server activation; put additional presentation in
+`ArcadeEffects:Ability`. The registry supplies the HUD buttons and server lookup.
+Do not trust extra fields in a client request. Larger future loadouts should also
+be checked against the compact HUD layouts before release.
 
-## V31 trail joins — game loop before abilities
+## Visual direction and references
 
-Cutting an exposed bot trail now preserves the hit cell and the trail route before
-the victim's trail is cleared. The connection follows your active trail to the
-cut, then the defeated trail back to its starting territory. The defeated trail's
-loose tail beyond the hit is not painted. Successful joins convert the recorded
-route into land, transfer the victim's territory, and clear the consumed trail
-collision buckets. Grid counters, minimap chunks and land rendering all receive
-the same ownership updates. Small adjacent-cell gaps from collision tolerance are
-bridged locally; no arbitrary map-wide shortcut is searched.
+The requested visual language comes from the uploaded gameplay recording:
+cream panels, bold outlines, readable Montserrat typography, bright territory
+colors, round characters and elastic movement. The earlier screenshots guide
+the blue/cyan revive and results screens: a fixed heart with draining red fill,
+outline pulses, and an animated map showing the player's captured area. These
+references guide presentation while the existing territory-capture loop remains.
+This is an adaptation; exact visual equivalence and device feel require Studio
+rendering and playtests.
 
-As of V36, a recorded route crossing third-party territory claims those crossing
-cells so the join remains connected. Captured or previously split islands can
-still exist for other reasons. Enclosure kills without a trail-contact point
-retain direct inheritance. The human's land remains reserved while their revive
-choice is pending, as in earlier versions.
+The character reference is the supplied `Slime-Character-Playground-Demo.rbxl`
+and [the linked slime demonstration](https://www.youtube.com/watch?v=JLJtyt1QLk8).
+The place was inspected as data without executing its scripts. It uses
+SmartBone 0.1.2 and a skinned slime setup. Paintland adapts its elastic movement
+using bounded procedural visual deformation: velocity/turn springs, squash and
+spread, and independently trailing ground lobes. Faces and accessories follow
+that deformation. The simulation collider remains the territory game's collider;
+this is cosmetic softbody-style motion, not physical softbody collision or a copy
+of the demo's complete skinned rig. Large corrections and long frames reset the
+visual springs safely. `SlimeVisualsEnabled=false` disables that deformation.
 
-Automated tests exercise real collision-to-elimination flow on a bent trail,
-verify 4-connected ownership, exclude the dangling tail, test adjacent-cell
-radius hits, exact counters, renderer/minimap invalidation, cleared trail buckets,
-and connected third-party crossings. Studio playtesting is still required: cut a
-bot midway along an L-shaped path and follow the new colored connection home.
-Abilities are intentionally deferred until the core game loop is settled.
+The earlier `UIEffects.rbxmx` and full `Kaboom Kablow.rbxl` were also inspected as
+reference source. Play buttons adapt their diagonal shine and five pulsing
+sparkles, using the supplied sparkle image `rbxassetid://96254055681570`.
+Reference bootstrap scripts and their tag observers are not installed wholesale.
+Check the sparkle image's availability in the target experience. Button
+interaction animates the actual Size around fixed `(0.5, 0.5)` anchors, including
+scale and offset components, so growth is symmetric around the center.
 
-## V30 defeat results
+## Revive heart and final results
 
-When the revive countdown expires, or the player chooses **END RUN**, the match
-stops and a **DEFEAT** card shows the territory percentage, tile count and
-eliminations recorded at death. The **BACK TO MAIN MENU** action returns to the
-color-selection menu. A new match starts only when Play is selected; the old
-automatic restart on timeout has been removed.
+The revive countdown starts at **4 seconds**. The main heart silhouette stays
+fixed while its red fill drains smoothly; a separate contour expands and fades
+for the pulse. A single reused Sound produces the countdown beeps. Pending
+server/receipt operations pause the local choice UI rather than granting a
+client-side revive. Ending or exhausting the revive opportunity leads to the
+results screen instead of silently starting a new match.
 
-When revive capability discovery has finished and no revive button is usable,
-the game goes directly to defeat on the next UI update. While ad availability is
-still being checked, the regular countdown remains. Ending the run is disabled
-during ad/purchase/credit verification so those operations are not abandoned.
-Late server messages cannot revive a closed prompt. In Studio, the existing test
-revive button remains available for testing.
+The results screen uses a frozen snapshot of the player's captured cells and
+stats. A neutral arena map reveals the captured color as the displayed
+percentage counts up automatically over `ResultsRevealSeconds`. The result is
+retained until the player chooses Play Again or Main Menu. Reduced-motion mode
+shows the final result immediately. The map represents the actual arena mask and
+owned territory, rather than a decorative percentage unrelated to the grid.
 
-Test a countdown expiry, End Run, a fully unavailable revive, successful revive
-followed by another death, and returning to menu then starting a fresh run. Verify
-that results keep the death snapshot and no bots move while on defeat/menu.
-Actual Roblox ad/purchase integration is still outside this client-only model.
+Settings in `ReplicatedStorage > PaintlandModules > Config`:
 
-## V29 interface
+```lua
+Config.ReviveWindowSeconds = 4
+Config.ReviveCountdownSoundId = "rbxasset://sounds/electronicpingshort.wav"
+-- Replace with your permitted audio, for example "rbxassetid://123456789".
+Config.ReviveCountdownVolume = 0.35
+Config.ResultsRevealSeconds = 2.0
+Config.ReducedMotion = false
+```
 
-The start menu and gameplay HUD now use a consistent dark navy, mint and soft
-white palette. The menu has a clear primary action, selected-color checkmarks
-and brief play instructions. The territory meter separates its caption and value
-from the fill; elimination counts, leaderboard rows and the minimap share the
-same panel styling. Landscape phones use a smaller minimap and show two ranking
-rows to keep controls apart. The existing dedicated revive and victory screens
-remain in place.
+## Capture sound: five to twenty pitched notes
 
-A **SOUND: OFF / ON** button sits at the bottom right in menus and gameplay.
-V29 starts **muted by default** to silence the placeholder pings. Toggling sound
-persists across replay/revive in the current session, but not across rejoining.
-It is hidden during the revive prompt. `SoundEnabled = false` is a hard disable;
-the button cannot override that setting.
+`CaptureSoundId` uses the requested `rbxassetid://106879573498735`. The repeat
+count depends on the **percentage points gained by one capture**, not total
+ownership. A positive gain of 0.5 points or less plays five notes; 1.5 points or
+more plays twenty. Values between those limits use a linearly interpolated,
+rounded count, so a 1.0-point gain plays thirteen notes. Zero gain is silent.
 
-### Replace the sounds in Studio
+```lua
+Config.CaptureSoundId = "rbxassetid://106879573498735"
+Config.CaptureRepeatInterval = 0.045
+Config.CaptureSequenceStartPitch = 1
+Config.CaptureSequenceEndPitch = 1.6
+```
 
-Open **StarterPlayer > StarterPlayerScripts > PaintlandClient > PaintlandModules > Config**.
-Edit the sound settings near the bottom:
+Pitch rises through each sequence. Playback uses the existing bounded voice
+pool. A new capture replaces the unfinished sequence; mute, death, reset and
+teardown cancel it. Sound availability and volume must be checked in Studio
+and in the published experience. Roblox audio permission may depend on the
+experience owner; use an asset the experience is allowed to play.
 
-- `KillSoundIds`: a table of five audio asset IDs (numbers or `rbxassetid://...` strings), in kill order. The fifth repeats for subsequent kills. An empty table uses the placeholder pitched pings.
-- `CaptureSoundId`: your territory-capture sound. Leave the tier settings to retain the 5-point pitch changes.
-- `SpawnSoundId`, `DeathSoundId`, `VictorySoundId`: replace the other event cues separately. Set a cue to `""` to silence that event.
-- `SoundMutedByDefault`: set `false` after replacing the placeholder sounds if you want audio on when joining.
-- `SoundMasterVolume`, `KillSoundVolume`, `CaptureSoundVolume`: overall and reward volumes. Set a reward volume to `0` to silence just that category.
-- `SoundEnabled = false`: disable every cue immediately.
+The Sound button controls session mute. `SoundEnabled=false` disables effects.
+`SoundMutedByDefault` controls the initial state. Beep and capture audio honor the
+same mute choice. Button sparkles and slashes can be disabled independently with
+`ButtonParticlesEnabled` and `ButtonSlashEnabled`; `ReducedMotion` suppresses
+motion effects while retaining essential countdown/result information.
 
-Use audio you own or that your experience has permission to use. Copy the audio
-asset ID, not a model/decal ID. Check Studio Output for permission/loading errors.
-Change these settings in the **Config ModuleScript**, not in generated live
-Sound instances. If editing repository sources, change `model-source/Config.luau`
-and rebuild the `.rbxmx` model.
+## Build and verification
 
-## Audio cue behavior
-
-Kill cues rise through **five tones** using the existing life kill streak. Kills
-six and above repeat the exact fifth cue, with no further pitch increase. Death
-resets the streak in the simulation; revive and replay start again at tone one.
-Bot kills do not play player reward sounds.
-
-Capture sounds use the **net percentage points gained by one completed capture**,
-not your total ownership or a relative percent change. For example, moving from
-20% to 27% gains 7 points and uses tier 1; gaining 12 points uses tier 2.
-A positive gain below 5 uses tier 0; each extra 5 points raises pitch. Capture
-tiers continue above five. A single cue plays per capture, rather than one per
-cell. Inheritance during that capture is included in its net gain; separate
-trail-kill inheritance uses the kill cue so rewards don't double-play.
-Spawn, death and victory have distinct pitches too. Overlapping voices are
-bounded to five kill cues, three capture cues and one each for other events.
-
-When unmuted, the fallback is Roblox's bundled `electronicpingshort.wav` at different pitches,
-so no uploaded sound ID is needed to try it. This creates an ascending arcade
-sequence; it does **not** include Valorant's recordings. To use five separate
-custom kill recordings, set `Config.KillSoundIds` to five audio IDs that your
-experience has permission to play. Custom recordings play at their original
-pitch, and the fifth is reused thereafter. Sound asset availability and actual
-loudness must be checked in Studio and on devices.
-
-Audio settings in `model-source/Config.luau`:
-
-| Setting | Default / behavior |
-| --- | --- |
-| `SoundEnabled` | `true`; set false to disable cues |
-| `SoundMutedByDefault` | `true`; placeholder pings start silent |
-| `SoundMasterVolume` | `0.65` |
-| `KillSoundPitches` | Five ascending default playback speeds |
-| `KillSoundIds` | Optional table of five custom asset IDs |
-| `CaptureSoundMetric` | `"Percentage"`; change to `"Tiles"` for raw tile gain |
-| `CaptureSoundStep` | `5` percentage points, or tiles in Tiles mode |
-| `CaptureSoundSemitonesPerStep` | `0.6`; larger values give bigger pitch jumps |
-| `CaptureSoundId` | Replace with permitted audio for the capture cue |
-
-The sound toggle calls `AudioController:SetMuted(true/false)`. Sound
-instances are reused and stopped on new runs/death; the controller also exposes
-`Destroy()` for teardown. No background music is included.
-
-In Studio, listen to kills 1, 2, 3, 4, 5, 6 and confirm 5/6 match; die/revive
-and verify the next kill returns to tone one. Compare gains immediately below
-and at 5/10/15 points, check a multi-kill capture for volume balance, and inspect
-Output for sound loading/permission errors. Listen on a phone as well.
-
-## Changes
-
-- Fully enclosed regions are captured even when larger than the exterior. The last interior pocket can complete the arena. When a loop divides the circular wall, the largest boundary-connected component remains exterior; smaller sides are captured. This explicit rule preserves the beta's wall-capture convention.
-- Defeated bots transfer their actual territory; trail kills now join it via the recorded route including crossings through third-party land along the trail. No unrelated connecting strips are drawn across neutral ground; off-route rival land follows normal capture cleanup. Inherited islands may appear as separate colored patches; that reflects ownership.
-- Capture checks repeat after inheritance so another head covered by transferred land is eliminated in the same operation.
-- Elimination presentation callbacks cannot interrupt simulation completion if an effect throws.
-- Minimap rectangles use shared integer pixel edges, eliminating fractional overlaps/gaps. The inaccurate camera rectangle is hidden. A rounded square frame and separate percentage footer improve readability without covering the map.
-- Capturer ownership preservation, opponent fragment pruning, bot respawns, and the actual 100% victory requirement remain in place. Eliminating every currently alive bot does not itself win; bots can respawn in safe neutral space until the board is filled.
-
-## Validation
-
-All 43 scripts compiled with the official Luau compiler. Headless tests execute the
-actual gameplay modules using small Roblox value/UI doubles, not Roblox's engine.
-UI tests run the actual constructors/callbacks with minimal UI doubles, checking
-menu/defeat state, death stat snapshots, revive expiry/decline/unavailability,
-pending-operation guards, color selection, mute state and non-overlapping HUD panel bounds at
-eight viewport sizes. This does not verify actual rendering, text glyphs or device
-input. Audio tests cover kills 1–20, custom cue IDs, exact 5-point thresholds, tile mode,
-voice limits, mute, reset, death and teardown. Gameplay tests cover five capture/inheritance scenarios, the existing 74%-ownership/victory
-regression, minimap pixel coverage at 108/142 pixels, and dirty-queue updates.
-The new enclosure test fails against original V26 gameplay code, confirming it
-reproduces a repaired defect. Model verification checks all embedded script
-sources, preserves the original hierarchy/properties, and confirms twenty-one original scripts changed and four modules were added.
+The build tools use Python's standard library. The original uploaded game and
+reference places are not copied into the generated place. All modules under
+`model-source/` except the client bootstrap become ModuleScripts inside
+ReplicatedStorage. The server bootstrap is generated by the build tool.
 
 ```sh
 python3 tools/build_model.py
 python3 tools/verify_model.py
 LUAU_BIN=/path/to/luau python3 tools/run_tests.py
 /path/to/luau-compile --null model-source/*.luau
+python3 tools/package_beta.py
 ```
 
-Use the official `luau-lang/luau` CLI build for those commands. In this workspace,
-the binaries are at `/tmp/paintland-luau/luau` and `luau-compile`. The build tool
-uses only Python's standard library and can regenerate the model after edits.
+The current workspace's official Luau tools are under `/workspace/work/luau/`.
+`verify_model.py` compares every embedded script against current source,
+checks service placement and bootstrap type, and checks direct shared-module
+requirements. Headless tests execute actual Luau modules with small Roblox
+value/UI doubles. They establish logic and layout arithmetic; they do not
+emulate Roblox rendering, audio, networking or marketplace services.
 
-## Beta scope
+Before release, test a normal capture, a large enclosure, wall capture, trail
+cut, two simultaneous players, death/revive/results/replay, disconnect/rejoin,
+private-room host departure, private-code join on another published server,
+and full-arena completion. Check packet delay/loss under Studio network
+simulation, touch steering and portrait/landscape layouts on a phone. Inspect
+both clients and the server for warnings. Tests that deliberately throw an
+`intentional VFX failure` verify effect isolation; those warnings are expected
+only during that regression scenario.
 
-This is a client-side solo game against bots, not a shared multiplayer game.
-Each client maintains its own world; live players cannot compete in this model.
-A multiplayer release needs a server-authoritative simulation and replication.
-The upload contains no server-side revive purchase/ad implementation; monetized
-revives require separately verified server handlers and receipt validation.
-No purchases or advertisements were tested here.
+V42 passed the official Luau compile, embedded-source checks, and headless
+regressions including nine HUD sizes, capture/kill rewards, rare-drop cooldowns,
+concurrent saves, retry-after-commit, same-server rejoin, failed-load recovery,
+Splash/Dash rules, swept trail collisions, forged requests, and real module
+transport callbacks with doubles. These checks do not connect to live DataStore,
+MemoryStore or TeleportService. Test saved wallet reconnects, capture/kill rewards,
+ability cooldowns and touch controls in a published test experience.
 
-Roblox Studio rendering, touch input, phone performance, actual Roblox services,
-and a complete manual match remain untested in this cloud environment. The
-minimap's visual appearance should be checked in Studio; pixel arithmetic tests
-cannot establish GPU/UI rendering behavior. This is a tested beta repair, not a
-guarantee that every possible issue is eliminated.
+V42 is an integration build requiring those Studio/published tests.
+A successful compile or headless run does not establish a lag-free live release.

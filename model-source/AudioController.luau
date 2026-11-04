@@ -52,8 +52,38 @@ function Audio:Kill(streak)
 end
 
 function Audio:Capture(count, playableTotal)
-    local id, pitch = Cues.Capture(self.cfg, count, playableTotal)
-    if id then self:Play("Capture", id, pitch, self.cfg.CaptureSoundVolume or 0.35) end
+    if self.destroyed or self.muted or self.cfg.SoundEnabled==false then return end
+    local repeats=Cues.CaptureRepeats(count,playableTotal)
+    local id=Cues.Capture(self.cfg,count,playableTotal)
+    if repeats==0 or not id or id=="" then return end
+    -- Replace the unfinished reward instead of accumulating asynchronous jobs.
+    for _,sound in ipairs(self.pools.Capture) do sound:Stop() end
+    self.captureSequence={id=id,total=repeats,played=0,wait=0,
+        interval=math.clamp(self.cfg.CaptureRepeatInterval or .045,.03,.15),
+        startPitch=math.clamp(self.cfg.CaptureSequenceStartPitch or 1,.5,3),
+        endPitch=math.clamp(self.cfg.CaptureSequenceEndPitch or 1.6,.5,3)}
+    self:Update(0)
+end
+
+function Audio:Update(dt)
+    if self.destroyed or not self.captureSequence then return end
+    if self.muted or self.cfg.SoundEnabled==false then
+        self.captureSequence=nil
+        for _,sound in ipairs(self.pools.Capture) do sound:Stop() end
+        return
+    end
+    if type(dt)~="number" or dt~=dt or dt<0 then return end
+    local sequence=self.captureSequence
+    sequence.wait-=dt
+    if sequence.wait>0 then return end
+    -- At most one note per rendered frame. A stall stretches the sequence;
+    -- it never fires a pile of overdue sounds in one frame.
+    local t=sequence.played/math.max(1,sequence.total-1)
+    self:Play("Capture",sequence.id,sequence.startPitch+(sequence.endPitch-sequence.startPitch)*t,
+        self.cfg.CaptureSoundVolume or .35)
+    sequence.played+=1
+    sequence.wait=sequence.interval
+    if sequence.played>=sequence.total then self.captureSequence=nil end
 end
 
 function Audio:Spawn()
@@ -71,6 +101,7 @@ end
 
 function Audio:Reset()
     if self.destroyed then return end
+    self.captureSequence=nil
     for channel, pool in pairs(self.pools) do
         for _, sound in ipairs(pool) do sound:Stop() end
         self.cursors[channel] = 0

@@ -14,7 +14,35 @@ Config.MinimapUpdateRate = 0.12
 
 
 -- REVIVE WINDOW: game stays frozen while a real ad / Robux prompt is active.
-Config.ReviveWindowSeconds = 5
+-- Persistent additive wallet rewards (server-authoritative).
+Config.CurrencyPersistenceEnabled = true
+Config.CurrencyPersistInStudio = false -- Studio uses an isolated temporary wallet
+Config.CurrencyDataStoreName = "PaintlandWalletV1"
+Config.CurrencyAutosaveSeconds = 60
+Config.CurrencyCaptureBaseCoins = 5
+Config.CurrencyCoinsPerPercent = 10
+Config.CurrencyKillCoins = 25
+Config.CurrencyGemMinCapturePercent = .5
+Config.CurrencyCaptureGemChance = .01
+Config.CurrencyKillGemChance = .05
+Config.CurrencyGemCooldownSeconds = 60
+Config.AbilitiesEnabled = true
+Config.SplashCooldownSeconds = 18
+Config.SplashRadiusCells = 6
+Config.DashCooldownSeconds = 8
+Config.DashDurationSeconds = .65
+Config.DashSpeedMultiplier = 2.25
+Config.MultiplayerEnabled = true
+Config.MultiplayerMaxPlayers = 8
+Config.MultiplayerMinPlayers = 2
+Config.MultiplayerFreeRevivesPerRun = 1
+Config.MultiplayerSnapshotRate = 10
+Config.MultiplayerInterpolationDelay = .12
+Config.SlimeVisualsEnabled = true
+Config.ReviveWindowSeconds = 4
+Config.ReviveCountdownSoundId = "rbxasset://sounds/electronicpingshort.wav" -- replace with rbxassetid://...
+Config.ReviveCountdownVolume = .35
+Config.ResultsRevealSeconds = 2.0
 Config.ReviveMaxAdsPerRun = 2
 Config.ReviveTransactionTimeout = 90
 
@@ -80,6 +108,8 @@ Config.CaptureParticlePoolLimit = 96
 Config.CaptureParticleMaxDistance = 100
 -- V12 arcade polish: all visual, pooled and mobile-aware.
 Config.ImpactEffectsEnabled = true
+Config.ButtonSlashEnabled = true -- diagonal highlight sweep on Play buttons
+Config.ButtonParticlesEnabled = true -- bounded paint flecks on UI activation
 Config.ReducedMotion = false -- disable moving sparks and trailing motes
 Config.ImpactMaxRings = 14
 Config.ImpactMaxSparks = 64
@@ -194,13 +224,16 @@ Config.RunVictoryRegressionTests = true
 
 -- V28 local arcade audio. Five kill tiers; tier five repeats for streaks >= 5.
 Config.SoundEnabled = true
-Config.SoundMutedByDefault = true -- Toggle SOUND in the UI to enable; replace the placeholder pings below.
+Config.SoundMutedByDefault = false -- Toggle SOUND in the UI to enable; replace the placeholder pings below.
 Config.SoundMasterVolume = 0.65
 Config.SoundBaseId = "rbxasset://sounds/electronicpingshort.wav"
 Config.KillSoundIds = {} -- Optional five permitted rbxassetid:// IDs; custom cues play at native pitch.
 Config.KillSoundPitches = {0.9, 1.01, 1.13, 1.35, 1.51}
 Config.KillSoundVolume = 0.75
-Config.CaptureSoundId = Config.SoundBaseId
+Config.CaptureSoundId = "rbxassetid://106879573498735"
+Config.CaptureRepeatInterval = .045
+Config.CaptureSequenceStartPitch = 1
+Config.CaptureSequenceEndPitch = 1.6
 Config.CaptureSoundVolume = 0.22
 Config.SpawnSoundId = Config.SoundBaseId
 Config.DeathSoundId = Config.SoundBaseId

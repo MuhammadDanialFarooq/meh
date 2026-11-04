@@ -37,6 +37,7 @@ function World:NewEntity(id, name, color, style)
         nodes = {}, visualVersion = 0, trailGeneration = 0, spawnRevision = 0, kills = 0, outsideDistance = 0,
         respawnAt = 0, home = Vector2.zero, aiTimer = 0,
         killStreak = 0, bestKillStreak = 0, lastKillAt = -math.huge,
+        abilityReadyAt = {}, dashRemaining = 0, dashMultiplier = 1,
     }
     self.entities[id] = e
     return e
@@ -58,6 +59,7 @@ function World:Spawn(e)
     end
     self.trails:Clear(e)
     e.spawnRevision += 1
+    e.dashRemaining=0
     e.pos = spawnPosition
     e.heading = self.rng:NextNumber(-math.pi, math.pi)
     e.targetHeading = e.heading
@@ -119,6 +121,7 @@ function World:Eliminate(victim, killer, cause, claimContext, hit)
         route=TrailMerge.Route(self.grid,killer,victim,hit)
     end
     victim.alive = false
+    victim.dashRemaining=0
     victim.killStreak = 0
     victim.lastKillAt = -math.huge
     -- Human's territory remains reserved for the revive choice, unchanged.
@@ -250,6 +253,7 @@ function World:ReviveHuman()
     e.alive = true
     e.respawnAt = 0
     e.spawnRevision += 1
+    e.dashRemaining=0
     e.heading = self.rng:NextNumber(-math.pi, math.pi)
     e.targetHeading = e.heading
     if self.events.onSpawn then self.events.onSpawn(e) end

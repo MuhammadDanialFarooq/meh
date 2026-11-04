@@ -112,7 +112,7 @@ function Leaderboard:Resize(viewport)
     self.compact=narrow
     self.maxRows=viewport.Y<500 and 2 or #self.rows
     local width=narrow and 160 or 220
-    self.panel.Position=UDim2.new(1,-12,0,narrow and 168 or 56)
+    self.panel.Position=UDim2.new(1,-12,0,viewport.Y<500 and 132 or (narrow and 168 or 56))
     self.panel.Size=UDim2.fromOffset(width,38+self.maxRows*40)
     for i,entry in ipairs(self.rows) do
         entry.row.Visible=i<=self.maxRows

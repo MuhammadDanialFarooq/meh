@@ -178,6 +178,19 @@ function ArcadeEffects:Spawn(entity)
     self:_ring(entity.pos, entity.color, 52, 0.46, 0)
 end
 
+function ArcadeEffects:Ability(id,entity,effect)
+    if not entity then return end
+    local origin=effect and effect.x and Vector2.new(effect.x,effect.y) or entity.pos
+    if id=="Splash" then
+        self:_ring(origin,entity.color,100,.5,0)
+        self:_ring(origin,Color3.new(1,1,1),70,.4,.08)
+        self:_burst(origin,entity.color,18,100)
+    else
+        self:_ring(origin,Color3.new(1,1,1),32,.25,0)
+        self:_burst(origin,entity.color,9,75)
+    end
+end
+
 function ArcadeEffects:Update(dt, cameraPosition)
     self.currentCamera = cameraPosition
     dt = math.clamp(dt or 0, 0, 0.07)

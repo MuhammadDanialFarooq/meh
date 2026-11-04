@@ -26,6 +26,9 @@ local VictoryWorldFX = require(Modules.VictoryWorldFX)
 local AudioController = require(Modules.AudioController)
 
 local MenuDemo = require(Modules.MenuDemo)
+local MultiplayerClient = require(Modules.MultiplayerClient)
+local AbilityService = require(Modules.AbilityService)
+local MatchmakingUI = require(Modules.MatchmakingUI)
 
 local Loader = {}
 
@@ -55,7 +58,8 @@ function Loader.Start()
     local nameService = NameService.new(Config)
     local running, frozenForRevive = false, false
     local hudTimer = 0
-    local ui, revive, victory
+    local ui, revive, victory, network, matchmaking
+    local practiceAbilities=AbilityService.new(Config)
     local victoryFX = VictoryWorldFX.new(renderer, Config)
     local newMatch, startMenu
     local function clearPresentation()
@@ -79,6 +83,8 @@ function Loader.Start()
         end,
     })
     startMenu=function()
+        if network and network.room and network.accepting~=false then network:Command("leave") end
+        if matchmaking then matchmaking:Hide() end
         running=false;frozenForRevive=false
         if revive then revive:Close() end
         if victory then victory:Hide() end
@@ -89,6 +95,16 @@ function Loader.Start()
 
     -- A fresh game clears all previous actors, bots, trails, land and minimap data.
     newMatch = function(skin)
+        if Config.MultiplayerEnabled~=false then
+            demo:Stop();running=false;frozenForRevive=false
+            if revive then revive:Close() end
+            if victory then victory:Hide() end
+            ui:NewRun();ui:SetMode("lobby")
+            matchmaking:Show({private=false,code="",players={},capacity=Config.MultiplayerMaxPlayers or 8,state="lobby"})
+            matchmaking:SetStatus("Connecting to an arena…")
+            network:Command(network.room and "replay" or "quick",{skin=skin})
+            return
+        end
         -- Replay is the ONLY action that discards a completed arena.
         if victory then victory:Hide() end
         demo:Stop()
@@ -238,8 +254,28 @@ function Loader.Start()
     end
 
     ui = UIController.new(renderer, Config, {
+        onAbility=function(id)
+            if not running or frozenForRevive or not world then return end
+            if network then network:UseAbility(id)
+            else
+                local actor=world.entities[1]
+                local accepted,result=practiceAbilities:Use(world,actor,id,true)
+                ui:SetAbilityState({id=id,accepted=accepted,reason=not accepted and result or nil,
+                    cooldowns=practiceAbilities:State(world,actor)})
+                if accepted then arcadeEffects:Ability(id,actor,result) end
+            end
+        end,
         onSoundToggle = function(muted) audio:SetMuted(muted) end,
         onMainMenu = function() startMenu() end,
+        onRooms = function(action)
+            if not network then return end
+            ui:SetMode("lobby")
+            matchmaking:Show(nil)
+            if action=="create" then
+                matchmaking:SetStatus("Creating your private room…")
+                network:Command("create",{skin=ui.skin})
+            end
+        end,
         onPlay = function(skin)
             local ok, err = xpcall(function()
                 newMatch(skin)
@@ -254,6 +290,7 @@ function Loader.Start()
         newMatch(ui.skin)
     end)
     revive = ReviveController.new(renderer.screen, Config, {
+        isMuted = function() return audio.muted end,
         onRevive = function()
             if world and world:ReviveHuman() then
                 frozenForRevive = false
@@ -272,6 +309,89 @@ function Loader.Start()
         end,
     })
 
+    if Config.MultiplayerEnabled~=false then
+        matchmaking=MatchmakingUI.new(renderer.screen,Config,function(action,fields)
+            fields=fields or {};fields.skin=ui.skin
+            if action=="leave" then network:Command("leave");startMenu() else network:Command(action,fields) end
+        end)
+        local function showNetworkResult(snapshot)
+            revive:Close();running=false;frozenForRevive=false;matchmaking:Hide()
+            audio:Reset();ui.defeatStats=snapshot;ui:ShowDefeat(world)
+        end
+        network=MultiplayerClient.new(Config,{
+            onWallet=function(wallet) ui:SetWallet(wallet) end,
+            onAbilityState=function(state) ui:SetAbilityState(state) end,
+            onAbility=function(id,actorId,effect)
+                arcadeEffects:Ability(id,world and world.entities[actorId],effect)
+            end,
+            onChanged=function(index)
+                renderer:MarkCell(index);ui.minimap:MarkCell(index)
+            end,
+            onWorld=function(replica)
+                demo:Stop();clearPresentation();world=replica
+                renderer:SetWorld(world);ui.minimap:SetWorld(world)
+                camera:Reset(world.entities[1].pos)
+            end,
+            onRespawn=function(entity)
+                renderer:ResetEntityVisual(entity.id)
+                if entity.id==1 then camera:Reset(entity.pos) end
+            end,
+            onLobby=function(lobby)
+                if lobby.state=="running" then
+                    matchmaking:Hide()
+                    if ui.mode=="lobby" or ui.mode=="menu" then ui:SetMode("playing");running=true end
+                elseif lobby.state=="lobby" then
+                    demo:Stop();ui:SetMode("lobby");matchmaking:Show(lobby);running=false
+                end
+            end,
+            onSnapshot=function(replica)
+                world=replica
+                if replica.roomState=="running" and ui.mode=="lobby" then
+                    matchmaking:Hide();ui:SetMode("playing");running=true
+                end
+            end,
+            onDeath=function(snapshot,remaining,credits)
+                running=false;frozenForRevive=true;ui.defeatStats=snapshot;audio:Death()
+                ui:SetMode("revive");killFeedback:Reset();expandCombo:Reset()
+                revive:OpenServer(remaining,credits,function() network:Command("revive") end,
+                    function() network:Command("decline") end)
+            end,
+            onResult=showNetworkResult,
+            onRevived=function()
+                revive:Close();frozenForRevive=false;running=true;ui:SetMode("playing");audio:Spawn()
+            end,
+            onCapture=function(id,count,total)
+                if world and id==1 then
+                    audio:Capture(count,total);expandCombo:Show(count/math.max(1,total)*100,world.entities[1].color)
+                    camera:CapturePulse(world.entities[1].heading,count)
+                end
+            end,
+            onElimination=function(victimId,killerId)
+                local victim=world and world.entities[victimId]
+                local killer=world and killerId and world.entities[killerId]
+                if victim then renderer:RemoveEntityVisual(victimId) end
+                if killerId==1 and victimId~=1 and killer then
+                    audio:Kill((killer.killStreak or 0)+1);killFeedback:OnKill(victim,killer)
+                    camera:KillPulse(killer.heading,(killer.killStreak or 0)+1)
+                end
+            end,
+            onVictory=function(winnerId,replica)
+                world=replica;running=false;frozenForRevive=false;revive:Close();matchmaking:Hide()
+                if winnerId==1 then
+                    ui:SetMode("victory");victory:Show(world);audio:Victory();victoryFX:Play(world.entities[1])
+                else
+                    ui:RecordDefeat(world);showNetworkResult(ui.defeatStats)
+                end
+            end,
+            onJoining=function(message) ui:SetMode("lobby");matchmaking:Show(nil);matchmaking:SetStatus(message) end,
+            onError=function(message)
+                if revive.active and revive.serverMode then revive:ServerRejected(message) end
+                if matchmaking.root.Visible then matchmaking:SetStatus(message)
+                else ui:Toast(message,Color3.fromRGB(255,210,180)) end
+            end,
+            onLeft=function() startMenu() end,
+        })
+    end
     startMenu()
 
     local lastFrameError = nil
@@ -279,7 +399,10 @@ function Loader.Start()
         if not renderer.screen.Parent then return end
         local realDt = dt
         dt = math.min(dt, 0.08)
-        if demo.active then
+        if network and network:GetWorld() and network.accepting~=false then
+            network:Update(realDt,function(entity) return input:GetHeading(entity,renderer,camera) end)
+            world=network:GetWorld()
+        elseif demo.active then
             demo:Update(realDt)
             world=demo.world
             camera:Update(demo.focus,dt)
@@ -319,6 +442,11 @@ function Loader.Start()
         if victory then victory:Update(realDt) end
         -- Countdown uses real elapsed frame time, not capped simulation delta.
         revive:Update(realDt)
+        audio:Update(realDt)
+        ui:UpdatePresentation(realDt)
+        if not network and running and world and world.entities[1] then
+            ui:SetAbilityState({cooldowns=practiceAbilities:State(world,world.entities[1])})
+        end
         if world and not demo.active then
             -- Diagnostic only when near completion. Actual completion is
             -- inside World and never depends on this HUD refresh.
@@ -343,7 +471,7 @@ function Loader.Start()
             end
         end
     end)
-    return {MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
+    return {Network=network,Matchmaking=matchmaking,MenuDemo = demo, Audio = audio, UI = ui, Input = input, Renderer = renderer, Revive = revive,
         Particles = particles, Camera = camera, KillFeedback = killFeedback,
         LandMergeEffects = mergeEffects, ArcadeEffects = arcadeEffects, MotionEffects = motionEffects,
         ExpandCombo = expandCombo, TerritoryVFX = territoryVFX, Cosmetics = CosmeticController,

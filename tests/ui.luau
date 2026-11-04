@@ -3,10 +3,16 @@
 local function signal()
     local s={handlers={}}
     function s:Connect(callback)
-        table.insert(self.handlers,callback)
-        return {Disconnect=function() end}
+        local connection={Connected=true,callback=callback}
+        function connection:Disconnect() self.Connected=false end
+        table.insert(self.handlers,connection)
+        return connection
     end
-    function s:Fire(...) for _,callback in ipairs(self.handlers) do callback(...) end end
+    function s:Fire(...)
+        for _,connection in ipairs(table.clone(self.handlers)) do
+            if connection.Connected then connection.callback(...) end
+        end
+    end
     return s
 end
 local function axis(scale,offset) return {Scale=scale,Offset=offset} end
@@ -20,37 +26,89 @@ local enums=setmetatable({}, {__index=function(t,k)
     local values=setmetatable({}, {__index=function(_,name) return name end})
     rawset(t,k,values);return values
 end})
-local tweens={Create=function(_,obj,_,goals)
-    return {Play=function() for k,v in pairs(goals) do obj[k]=v end end,Cancel=function() end}
-end}
-local services={RunService={IsStudio=function() return false end},TweenService=tweens,UserInputService={TouchEnabled=false},Players={LocalPlayer={UserId=0}}}
+local tweens={created={}}
+function tweens:Create(obj,info,goals)
+    local tween={Object=obj,Info=info,Goals=goals,Cancelled=false}
+    function tween:Play() self.Played=true;for k,v in pairs(goals) do obj[k]=v end end
+    function tween:Cancel() self.Cancelled=true end
+    table.insert(self.created,tween)
+    return tween
+end
+local services={RunService={IsStudio=function() return false end},TweenService=tweens,
+    UserInputService={TouchEnabled=false,InputBegan=signal(),GetFocusedTextBox=function() return nil end},Players={LocalPlayer={UserId=0}}}
 game.GetService=function(_,name) return services[name] or {} end
 local deferred={}
 local taskDouble={defer=function(f) f() end,delay=function(_,f) table.insert(deferred,f) end,spawn=function() end}
-local uiInstance={new=function(class)
-    local obj={ClassName=class,children={},Activated=signal(),Visible=true,
+local uiInstance={}
+function uiInstance.new(class)
+    local values={ClassName=class,children={},Activated=signal(),Visible=true,Enabled=true,Active=true,
+        MouseEnter=signal(),MouseLeave=signal(),SelectionGained=signal(),SelectionLost=signal(),
+        InputBegan=signal(),InputEnded=signal(),Destroying=signal(),
         AnchorPoint=Vector2.zero,Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(0,0)}
-    function obj:FindFirstChild(name) for _,child in ipairs(self.children) do if child.Name==name then return child end end end
-    function obj:GetPropertyChangedSignal() return signal() end
-    function obj:Destroy() self.Destroyed=true end
-    function obj:ClearAllChildren() self.children={} end
-    return setmetatable(obj,{__newindex=function(t,k,v)
-        rawset(t,k,v)
-        if k=="Parent" and v and v.children then table.insert(v.children,t) end
+    local properties={}
+    local obj
+    obj=setmetatable({},{__index=values,__newindex=function(_,key,value)
+        local old=values[key]
+        if old==value then return end
+        if key=="Parent" then
+            if old and old.children then
+                local index=table.find(old.children,obj)
+                if index then table.remove(old.children,index) end
+            end
+            if value and value.children then table.insert(value.children,obj) end
+        end
+        values[key]=value
+        if properties[key] then properties[key]:Fire() end
     end})
-end}
+    -- Backing values ensure even writes to existing fields run property signals.
+    function values:FindFirstChild(name)
+        for _,child in ipairs(values.children) do if child.Name==name then return child end end
+    end
+    function values:GetPropertyChangedSignal(name)
+        if not properties[name] then properties[name]=signal() end
+        return properties[name]
+    end
+    function values:IsA(name)
+        if name==class or name=="Instance" then return true end
+        if name=="GuiObject" then
+            return class=="Frame" or class=="CanvasGroup" or class=="TextLabel" or class=="TextButton"
+                or class=="TextBox" or class=="ImageLabel" or class=="ImageButton" or class=="ScrollingFrame"
+        end
+        return name=="GuiButton" and (class=="TextButton" or class=="ImageButton")
+    end
+    function values:Play() self.Playing=true;self.PlayCount=(self.PlayCount or 0)+1 end
+    function values:Stop() self.Playing=false end
+    function values:GetChildren() return table.clone(values.children) end
+    function values:ClearAllChildren()
+        for _,child in ipairs(table.clone(values.children)) do child:Destroy() end
+    end
+    function values:Destroy()
+        if values.Destroyed then return end
+        values.Destroyed=true
+        values.Destroying:Fire()
+        self:ClearAllChildren()
+        self.Parent=nil
+    end
+    return obj
+end
 -- Override UI factory environments while retaining actual dependencies and logic.
-for _,name in ipairs({"UIController","HUDCanvas","LeaderboardController","MinimapController"}) do
+for _,name in ipairs({"AbilityHUD","WalletHUD","ResultsScreen","ReviveHeart","ReviveController","Fonts","MainMenu","ButtonEffects","UIController","HUDCanvas","LeaderboardController","MinimapController"}) do
     local env=setmetatable({UDim=UDim,Enum=enums,Instance=uiInstance,task=taskDouble,
-        TweenInfo={new=function() return {} end},ColorSequence={new=function() return {} end}},
+        TweenInfo={new=function() return {} end},ColorSequence={new=function() return {} end},
+        Font={new=function(family,weight,style) return {Family=family,Weight=weight,Style=style} end},
+        NumberSequenceKeypoint={new=function(time,value,envelope) return {Time=time,Value=value,Envelope=envelope or 0} end},
+        NumberSequence={new=function(a,b)
+            return {Keypoints=type(a)=="table" and a or {{Time=0,Value=a},{Time=1,Value=b or a}}}
+        end}},
         {__index=getfenv(factories[name])})
     setfenv(factories[name],env)
     cache[name]=nil
 end
 Instance=uiInstance
 local uiCfg=table.clone(loadModule("Config"))
+uiCfg.SoundMutedByDefault=true -- explicitly exercise muted session toggle
 local screen=uiInstance.new("ScreenGui")
-screen.Parent={}
+screen.Parent=uiInstance.new("Folder")
 local viewport=uiInstance.new("Frame")
 viewport.AbsoluteSize=Vector2.new(1280,720)
 local renderer={screen=screen,viewport=viewport,SetLeader=function() end}
@@ -83,9 +141,9 @@ end
 local function overlap(a,b)
     return a[1]<b[1]+b[3] and b[1]<a[1]+a[3] and a[2]<b[2]+b[4] and b[2]<a[2]+a[4]
 end
-for _,size in ipairs({{320,568},{375,667},{390,844},{640,360},{844,390},{900,600},{1280,720},{1920,1080}}) do
+for _,size in ipairs({{320,568},{375,667},{390,844},{568,320},{640,360},{844,390},{900,600},{1280,720},{1920,1080}}) do
     viewport.AbsoluteSize=Vector2.new(size[1],size[2]);ui:Resize()
-    local items={ui.progress.canvas,ui.killCard,ui.leaderboard.panel,ui.minimap.panel,ui.soundButton}
+    local items={ui.progress.canvas,ui.killCard,ui.leaderboard.panel,ui.minimap.panel,ui.soundButton,ui.wallet.root,ui.abilities.root}
     local bounds={}
     for _,obj in ipairs(items) do
         local r=rect(obj);table.insert(bounds,r)
@@ -95,37 +153,36 @@ for _,size in ipairs({{320,568},{375,667},{390,844},{640,360},{844,390},{900,600
     for i=1,#bounds do for j=i+1,#bounds do
         assert(not overlap(bounds[i],bounds[j]),items[i].Name .. " overlaps " .. items[j].Name)
     end end
-    local scale=ui.menuScale.Scale
-    assert(scale>0 and 420*scale<=size[1]-32+1e-6 and 460*scale<=size[2]-110+1e-6,"Menu does not fit")
+    local menuBounds=rect(ui.menu.root)
+    assert(menuBounds[1]>=0 and menuBounds[2]>=0
+        and menuBounds[1]+menuBounds[3]<=size[1] and menuBounds[2]+menuBounds[4]<=size[2],
+        "Menu does not fit "..size[1].."x"..size[2])
 end
 ui:SetMode("revive");assert(not ui.soundButton.Visible,"Sound button covers revive")
 ui:SetMode("playing");assert(ui.soundButton.Visible,"Sound button not restored")
 -- Results retain the death snapshot even if later HUD updates inspect the world.
-local world={entities={{kills=7}},grid={counts={[1]=224},playableTotal=1000}}
+local world={entities={{kills=7,color=Color3.fromRGB(23,196,158)}},grid={size=4,total=16,
+    mask=table.create(16,true),owners={1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0},counts={[1]=4},playableTotal=16}}
 ui:RecordDefeat(world)
-world.grid.counts[1]=10
+world.grid.counts[1]=1;world.grid.owners[1]=0
 ui:ShowDefeat(world)
-assert(ui.mode=="defeat" and ui.defeatOverlay.Visible and not ui.overlay.Visible and not ui.hud.Visible,"Defeat overlay not exclusive")
-assert(ui.result.Text=="You conquered 22.4% land" and ui.defeatDetails.Text=="224 tiles  ·  7 eliminations","Death snapshot changed")
-assert(not ui.skins[1].button.Visible and ui.result.Visible,"Color selector covers results")
-playSkin=nil
+assert(ui.mode=="defeat" and ui.defeatOverlay.Visible and not ui.overlay.Visible and not ui.hud.Visible,"Results not exclusive")
+assert(ui.defeatStats.count==4 and ui.defeatStats.cells[1],"Death snapshot mutated")
+playSkin=nil;ui.replay.Activated:Fire();assert(playSkin==nil,"Replay skipped automatic reveal")
+ui:UpdatePresentation(3)
+assert(ui.result.Text=="25.0%","Animated result did not reach death percentage")
 ui.returnMenu.Activated:Fire()
-assert(ui.mode=="menu" and playSkin==nil and ui.skins[1].button.Visible and not ui.result.Visible,
-    "Defeat button restarted gameplay instead of returning to menu")
-assert(ui.defeatOverlay.BackgroundColor3.R==0 and ui.defeatOverlay.BackgroundTransparency>.2
-    and ui.defeatOverlay.BackgroundTransparency<.8,"Defeat did not preserve game through black tint")
-assert(ui.replay:FindFirstChild("Icon").ClassName=="ImageLabel" and
-    ui.returnMenu:FindFirstChild("Icon").ClassName=="ImageLabel","Death button icons are not images")
-ui:ShowDefeat(world);playSkin=nil;ui.replay.Activated:Fire()
-assert(playSkin==3,"Play Again lost selected color or did not start a run")
-for _,size in ipairs({{320,568},{375,667},{640,360},{844,390},{1280,720}}) do
+assert(ui.mode=="menu" and playSkin==nil and not ui.defeatOverlay.Visible,"Results menu routing broken")
+ui:ShowDefeat(world);ui:UpdatePresentation(3);ui.replay.Activated:Fire()
+assert(playSkin==3,"Play Again lost selected color")
+for _,size in ipairs({{320,568},{375,667},{568,320},{640,360},{844,390},{1280,720}}) do
     viewport.AbsoluteSize=Vector2.new(size[1],size[2]);ui:Resize()
-    local scale=ui.defeatScale.Scale
-    assert(scale>0 and 420*scale<=size[1]-32+1e-6 and 350*scale<=size[2]-64+1e-6,
-        "Death layout leaves viewport")
-    assert(ui.replay.Position.Y.Offset+ui.replay.Size.Y.Offset<ui.returnMenu.Position.Y.Offset,
-        "Death actions overlap")
-    assert(ui.replay.Size.Y.Offset*scale>=44-1e-6,"Death buttons are too small for touch")
+    local play,back=rect(ui.replay),rect(ui.returnMenu)
+    assert(play[4]>=44 and back[4]>=44,"Results touch controls too small")
+    assert(not overlap(play,back),"Results actions overlap")
+    for _,bounds in ipairs({play,back,rect(ui.results.stage)}) do
+        assert(bounds[1]>=0 and bounds[2]>=0 and bounds[1]+bounds[3]<=size[1] and bounds[2]+bounds[4]<=size[2],"Results outside viewport")
+    end
 end
 ui:NewRun();assert(ui.defeatStats==nil,"New run retained stale defeat stats")
 
@@ -150,4 +207,4 @@ r.active=true;r.state="countdown";r.checkingAd=true;r.remaining=5
 r:Update(.1)
 assert(ended==3 and r.active,"Availability discovery was mistaken for exhausted revives")
 ui:Destroy();assert(ui.soundButton.Destroyed and ui.overlay.Destroyed,"UI teardown failed")
-print("[Paintland V29 TEST PASS] Menu/play/color/mute/defeat states; frozen death stats, revive timeout/decline/transaction guard; HUD bounds at 8 sizes")
+print("[Paintland V42 TEST PASS] Menu/play/color/mute/defeat states; frozen death stats, revive guards; HUD/wallet/ability bounds and overlap at 9 sizes")

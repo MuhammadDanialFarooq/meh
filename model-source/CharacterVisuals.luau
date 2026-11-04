@@ -1,5 +1,7 @@
--- V21: procedural toy character. All geometry is generated locally in Workspace.
+-- V42: elastic slime character. Visual deformation never changes the PaperIO collider.
 -- No external character models, MeshIds, uploaded hats, or invisible face plates.
+local SlimeVisuals=require(script.Parent.SlimeVisuals)
+local Fonts=require(script.Parent.Fonts)
 local CharacterVisuals = {}
 CharacterVisuals.__index = CharacterVisuals
 
@@ -44,7 +46,7 @@ local function newLabel(root, entity)
     text.Name = "Name"
     text.Size = UDim2.fromScale(1, 1)
     text.BackgroundTransparency = 1
-    text.Font = Enum.Font.GothamBlack
+    text.FontFace = Fonts.Bold
     text.TextSize = 15
     text.TextColor3 = Color3.fromRGB(255,255,255)
     text.TextStrokeColor3 = Color3.fromRGB(38,44,71)
@@ -57,7 +59,7 @@ local function newLabel(root, entity)
     crown.Position = UDim2.fromScale(0.5,0)
     crown.Size = UDim2.fromOffset(32,27)
     crown.BackgroundTransparency = 1
-    crown.Font = Enum.Font.GothamBlack
+    crown.FontFace = Fonts.Bold
     crown.Text = "👑"
     crown.TextScaled = true
     crown.Visible = false
@@ -68,7 +70,7 @@ end
 local function addHat(model, kind, color)
     local created = {}
     local function shape(name, size, cf, tone, typeShape)
-        local p = make(model,name,size,model:GetPivot()*cf,tone,typeShape)
+        local p = make(model,name,size,model:GetPivot()*CFrame.new(0,-.8,0)*cf,tone,typeShape)
         created[#created+1] = p
         return p
     end
@@ -105,20 +107,23 @@ function CharacterVisuals:Create(entity)
     local root=make(model,"Pivot",Vector3.new(.15,.15,.15),CFrame.new(),entity.color)
     root.Transparency=1
     model.PrimaryPart=root
-    -- Feet and body are actual sphere geometry. No invisible accessory plates.
-    local shadow=make(model,"SoftShadow",Vector3.new(5.5,.14,4.5),CFrame.new(0,-3.44,.38),
+    -- Body and lobes use actual rounded geometry. No invisible accessory plates.
+    local shadow=make(model,"SoftShadow",Vector3.new(5.5,.14,4.5),CFrame.new(0,-2.35,.38),
         Color3.fromRGB(43,54,73),Enum.PartType.Ball)
     shadow.Transparency=.65
-    local feet={}
-    for _,x in ipairs({-1.35,1.35}) do
-        feet[#feet+1]=make(model,"LittleFoot",Vector3.new(1.95,.86,2.0),
-            CFrame.new(x,-2.65,-.5),Color3.fromRGB(255,245,228),Enum.PartType.Ball)
+    -- Intersecting rounded lobes share the owner's paint color and lag separately
+    -- on turns, making the silhouette behave like a soft puddle rather than feet.
+    local lobes={}
+    for i=1,4 do
+        local angle=(i-1)*math.pi/2+math.pi/4
+        lobes[i]=make(model,"SlimeLobe"..i,Vector3.new(2.7,1.45,2.8),
+            CFrame.new(math.cos(angle)*1.65,-1.62,math.sin(angle)*1.65),entity.color,Enum.PartType.Ball)
     end
-    local body=make(model,"BeanBody",Vector3.new(5.8,6.55,5.25),
+    local body=make(model,"SlimeBody",Vector3.new(5.8,4.8,5.5),
         CFrame.new(),entity.color,Enum.PartType.Ball)
     -- Small glossy cheek highlight placed on the visible curved body.
     local shine=make(model,"CheekLight",Vector3.new(.65,.88,.32),
-        CFrame.new(-1.38,1.45,-2.27)*CFrame.Angles(0,0,math.rad(-18)),
+        CFrame.new(-1.38,1.25,-2.14)*CFrame.Angles(0,0,math.rad(-18)),
         Color3.fromRGB(255,255,255),Enum.PartType.Ball)
     shine.Transparency=.38
     -- Large expressive eyeballs, facing -Z in the model's local coordinates.
@@ -126,11 +131,11 @@ function CharacterVisuals:Create(entity)
     face.Name="ProceduralFace"
     face.Parent=model
     for _,x in ipairs({-.91,.91}) do
-        make(face,"EyeWhite",Vector3.new(1.28,1.41,.60),CFrame.new(x,.55,-2.48),
+        make(face,"EyeWhite",Vector3.new(1.28,1.41,.60),CFrame.new(x,.35,-2.48),
             Color3.fromRGB(255,252,250),Enum.PartType.Ball)
-        make(face,"Pupil",Vector3.new(.53,.76,.29),CFrame.new(x+.07,.5,-2.82),
+        make(face,"Pupil",Vector3.new(.53,.76,.29),CFrame.new(x+.07,.3,-2.82),
             Color3.fromRGB(32,40,62),Enum.PartType.Ball)
-        make(face,"EyeShine",Vector3.new(.19,.22,.09),CFrame.new(x-.10,.76,-2.995),
+        make(face,"EyeShine",Vector3.new(.19,.22,.09),CFrame.new(x-.10,.56,-2.995),
             Color3.fromRGB(255,255,255),Enum.PartType.Ball)
     end
     local mouth=make(face,"Smile",Vector3.new(.72,.27,.18),CFrame.new(0,-.74,-2.48),
@@ -147,7 +152,8 @@ function CharacterVisuals:Create(entity)
     faceDecal.Transparency=1
     faceDecal.Parent=body
     local name,crown=newLabel(root,entity)
-    local record={model=model,root=root,body=body,shine=shine,face=face,faceDecal=faceDecal,
+    local record={model=model,root=root,body=body,shine=shine,face=face,faceDecal=faceDecal,lobes=lobes,shadow=shadow,
+        elastic=SlimeVisuals.new(entity.pos,entity.heading),lastTime=os.clock(),rest={},
         name=name,crown=crown,hatParts={},cosmetics={},createdAt=os.clock()}
     self.objects[entity.id]=record
     local cosmetics=self.equipped[entity.id] or
@@ -191,6 +197,13 @@ function CharacterVisuals:SetCosmetics(id,cosmetics)
         r.hatBadge=gui
     end
     r.cosmetics=cosmetics
+    -- Keep original local transforms; never recapture already-deformed body parts.
+    for _,part in ipairs(r.model:GetDescendants()) do
+        if part:IsA("BasePart") and part~=r.root and not r.rest[part] then
+            r.rest[part]={size=part.Size,cf=r.root.CFrame:ToObjectSpace(part.CFrame)}
+        end
+    end
+    for part in pairs(r.rest) do if not part.Parent then r.rest[part]=nil end end
 end
 
 function CharacterVisuals:Update(entity,isLeader)
@@ -199,13 +212,37 @@ function CharacterVisuals:Update(entity,isLeader)
     r.name.Text=entity.name
     r.crown.Visible=isLeader
     r.body.Color=entity.color
-    -- All movement is one Model:PivotTo, avoiding independently sliding parts.
-    local t=os.clock()
-    local bob=math.sin(t*7.3+entity.id)*.085
+    local now=os.clock()
+    local elastic=SlimeVisuals.Step(r.elastic,entity.pos,entity.heading,now-r.lastTime,
+        self.cfg.ReducedMotion or self.cfg.SlimeVisualsEnabled==false)
+    r.lastTime=now
     local yaw=-entity.heading-math.pi/2
-    local lean=math.sin(t*4.2+entity.id)*.025
-    r.model:PivotTo(CFrame.new(entity.pos.X,(self.cfg.CharacterHeight or 3.7)+bob,entity.pos.Y)
-        * CFrame.Angles(0,yaw,lean))
+    local rootCF=CFrame.new(entity.pos.X,(self.cfg.CharacterHeight or 3.7)-1+elastic.bob,entity.pos.Y)
+        *CFrame.Angles(0,yaw,0)
+    r.root.CFrame=rootCF
+    local deformation=CFrame.Angles(-elastic.lean,0,-elastic.turn*.7)
+    for part,rest in pairs(r.rest) do
+        if part.Parent then
+            local at=rest.cf.Position
+            if part==r.shadow then
+                part.Size=Vector3.new(rest.size.X*elastic.x,rest.size.Y,rest.size.Z*elastic.z)
+                part.CFrame=rootCF*rest.cf
+            else
+                local isLobe=table.find(r.lobes,part)
+                local isBody=part==r.body or isLobe
+                if isBody then
+                    part.Color=entity.color
+                    local wave=isLobe and math.sin(elastic.phase+isLobe*1.5)*.035 or 0
+                    part.Size=Vector3.new(rest.size.X*(elastic.x+wave),rest.size.Y*elastic.y,rest.size.Z*(elastic.z-wave))
+                end
+                -- Face and accessories follow the same soft displacement without
+                -- stretching their shapes, so eyes remain clear and readable.
+                local localPosition=Vector3.new(at.X*elastic.x,at.Y*elastic.y-(1-elastic.y)*2.3,at.Z*elastic.z)
+                if isLobe then localPosition+=Vector3.new(elastic.turn*math.sin(isLobe)*.65,0,elastic.lean*.8) end
+                part.CFrame=rootCF*deformation*CFrame.new(localPosition)*rest.cf.Rotation
+            end
+        end
+    end
 end
 
 function CharacterVisuals:Remove(id)

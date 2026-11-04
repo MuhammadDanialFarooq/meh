@@ -11,7 +11,10 @@ function Movement.Step(entity, dt, cfg, half)
 
     local velocity = Vector2.new(math.cos(entity.heading), math.sin(entity.heading))
     local speed = entity.isHuman and cfg.PlayerSpeed or cfg.BotSpeed
-    local candidate = entity.pos + velocity * speed * dt
+    local boosted = math.min(dt,math.max(0,entity.dashRemaining or 0))
+    entity.dashRemaining=math.max(0,(entity.dashRemaining or 0)-dt)
+    local distance=speed*(dt+boosted*(math.clamp(entity.dashMultiplier or 1,1,3)-1))
+    local candidate = entity.pos + velocity * distance
 
     local physicalRadius = cfg.ArenaRadius or (half - cfg.Cell * 2)
     local maskRadius = physicalRadius - (cfg.ArenaBoundaryMargin or cfg.Cell * 0.85)
